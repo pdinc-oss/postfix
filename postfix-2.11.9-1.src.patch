@@ -1,0 +1,791 @@
+--- origsrc/postfix-2.11.9/auxiliary/qshape/qshape.pl	2011-03-23 19:00:45.000000000 +0100
++++ src/postfix-2.11.9/auxiliary/qshape/qshape.pl	2014-11-12 19:02:37.853159400 +0100
+@@ -186,7 +186,7 @@ $minsub = $opts{"m"} if (exists $opts{"m
+ if ( -t STDOUT ) {
+     $batch_msg_count = 1000 unless defined($batch_msg_count = $opts{"N"});
+     $batch_top_domains = 20 unless defined ($batch_top_domains = $opts{"n"});
+-    $cls = `clear`;
++    $cls = `clear 2>/dev/null`;
+ } else {
+     $batch_msg_count = 0;
+     $batch_top_domains = 0;
+--- origsrc/postfix-2.11.9/makedefs	2015-10-10 16:35:48.000000000 +0200
++++ src/postfix-2.11.9/makedefs	2017-03-25 17:26:55.277043000 +0100
+@@ -517,6 +517,10 @@ ReliantUNIX-?.5.43) SYSTYPE=ReliantUnix5
+ 		SYSLIBS="-lresolv -lsocket -lnsl -lc -lrpcsvc -L/usr/ucblib -lucb"
+ 		;;
+ 
++    CYGWIN_NT-*.*.2.[0-9]*)	SYSTYPE=CYGWIN2x
++		SYSLIBS="$SYSLIBS -ldb"
++		;;
++
+ 	 ".")	if [ -d /NextApps ]; then
+ 		    SYSTYPE=`hostinfo | sed -n \
+ 			's/^.*NeXT Mach 3.*$/NEXTSTEP3/;/NEXTSTEP3/{p;q;}'`
+--- origsrc/postfix-2.11.9/src/global/mail_params.c	2014-01-08 02:19:18.000000000 +0100
++++ src/postfix-2.11.9/src/global/mail_params.c	2014-11-13 20:23:20.246472400 +0100
+@@ -452,6 +452,7 @@ static void check_overlap(void)
+ 		  VAR_DEFAULT_PRIVS, VAR_MAIL_OWNER,
+ 		  var_default_privs, var_mail_owner,
+ 		  (long) var_owner_uid);
++#ifndef NO_STRICT_GID_CHECKS
+     if (var_default_gid == var_owner_gid)
+ 	msg_fatal("file %s/%s: parameters %s and %s: users %s and %s have the same group ID: %ld",
+ 		  var_config_dir, MAIN_CONF_FILE,
+@@ -470,6 +471,7 @@ static void check_overlap(void)
+ 		  VAR_MAIL_OWNER, VAR_SGID_GROUP,
+ 		  var_mail_owner, var_sgid_group,
+ 		  (long) var_sgid_gid);
++#endif
+ }
+ 
+ #ifdef MYORIGIN_FROM_FILE
+--- origsrc/postfix-2.11.9/src/master/master.c	2012-03-09 15:57:39.000000000 +0100
++++ src/postfix-2.11.9/src/master/master.c	2014-10-08 22:53:22.042368600 +0200
+@@ -392,7 +392,12 @@ int     main(int argc, char **argv)
+      * all MTA processes cleanly. Give up if we can't separate from our
+      * parent process. We're not supposed to blow away the parent.
+      */
+-    if (debug_me == 0 && master_detach != 0 && setsid() == -1 && getsid(0) != getpid())
++    if (debug_me == 0 && master_detach != 0 && setsid() == -1 &&
++#ifndef NO_MASTER_SETSID_CHECK
++	    getsid(0) != getpid())
++#else
++	    getpgid(0) != getpid())
++#endif
+ 	msg_fatal("unable to set session and process group ID: %m");
+ 
+     /*
+--- origsrc/postfix-2.11.9/src/pipe/pipe.c	2013-12-13 23:40:43.000000000 +0100
++++ src/postfix-2.11.9/src/pipe/pipe.c	2014-11-13 20:26:21.830791300 +0100
+@@ -971,12 +971,14 @@ static void get_service_attr(PIPE_ATTR *
+ 		  var_mail_owner);
+     if (attr->gid == 0)
+ 	msg_fatal("user= command-line attribute specifies privileged group id 0");
++#ifndef NO_STRICT_GID_CHECKS
+     if (attr->gid == var_owner_gid)
+ 	msg_fatal("user= command-line attribute specifies mail system owner %s group id %ld",
+ 		  var_mail_owner, (long) attr->gid);
+     if (attr->gid == var_sgid_gid)
+ 	msg_fatal("user= command-line attribute specifies mail system %s group id %ld",
+ 		  var_sgid_group, (long) attr->gid);
++#endif
+ 
+     /*
+      * Give the poor tester a clue of what is going on.
+--- origsrc/postfix-2.11.9/src/postqueue/postqueue.c	2012-07-17 21:40:37.000000000 +0200
++++ src/postfix-2.11.9/src/postqueue/postqueue.c	2014-11-22 19:08:40.555481000 +0100
+@@ -311,7 +311,11 @@ static void show_queue(void)
+ 
+ 	msg_warn("Mail system is down -- accessing queue directly");
+ 	argv = argv_alloc(6);
++#ifndef ALLOW_POSTQUEUE_RUN_SHOWQ_AS_ROOT
+ 	argv_add(argv, var_showq_service, "-u", "-S", (char *) 0);
++#else
++	argv_add(argv, var_showq_service,       "-S", (char *) 0);
++#endif
+ 	for (n = 0; n < msg_verbose; n++)
+ 	    argv_add(argv, "-v", (char *) 0);
+ 	argv_terminate(argv);
+--- origsrc/postfix-2.11.9/src/postsuper/postsuper.c	2016-11-05 15:49:49.000000000 +0100
++++ src/postfix-2.11.9/src/postsuper/postsuper.c	2017-03-25 16:07:57.408174500 +0100
+@@ -429,6 +429,9 @@ static int postrename(const char *old, c
+ 
+     if ((ret = sane_rename(old, new)) < 0) {
+ 	if (errno != ENOENT
++#ifdef ALLOW_POSTSUPER_RUN_AS_ROOT /* Don't mkdir if run as root */
++	    || (geteuid() != var_owner_uid ? (errno = EPERM) : 0)
++#endif
+ 	    || mail_queue_mkdirs(new) < 0
+ 	    || (ret = sane_rename(old, new)) < 0)
+ 	    if (errno != ENOENT)
+@@ -1239,7 +1242,11 @@ int     main(int argc, char **argv)
+      * a non-root user limits the damage to the already compromised mail
+      * owner.
+      */
++#ifndef ALLOW_POSTSUPER_RUN_AS_ROOT
+     set_ugid(var_owner_uid, var_owner_gid);
++#else
++    try_set_ugid(var_owner_uid, var_owner_gid);
++#endif
+ 
+     /*
+      * Be sure to log a warning if we do not finish structural repair. Maybe
+--- origsrc/postfix-2.11.9/src/spawn/spawn.c	2009-04-17 22:03:59.000000000 +0200
++++ src/postfix-2.11.9/src/spawn/spawn.c	2014-11-13 20:24:40.976614100 +0100
+@@ -254,8 +254,10 @@ static void get_service_attr(SPAWN_ATTR
+ 	msg_fatal("request to deliver as mail system owner");
+     if (attr->gid == 0)
+ 	msg_fatal("request to use privileged group id %ld", (long) attr->gid);
++#ifndef NO_STRICT_GID_CHECKS
+     if (attr->gid == var_owner_gid)
+ 	msg_fatal("request to use mail system owner group id %ld", (long) attr->gid);
++#endif
+     if (attr->uid == (uid_t) (-1))
+ 	msg_fatal("user must not have user ID -1");
+     if (attr->gid == (gid_t) (-1))
+--- origsrc/postfix-2.11.9/src/util/edit_file.c	2012-01-25 01:41:08.000000000 +0100
++++ src/postfix-2.11.9/src/util/edit_file.c	2014-09-26 22:11:37.384298200 +0200
+@@ -284,7 +284,10 @@ EDIT_FILE *edit_file_open(const char *pa
+ 	    || after_lock.st_size > 0
+ #endif
+ 	    || after_lock.st_nlink > 1
+-	    || (after_lock.st_mode & FILE_PERM_MASK) != EDIT_FILE_MODE) {
++#ifndef NO_STRICT_FMODE_CHECKS
++	    || (after_lock.st_mode & FILE_PERM_MASK) != EDIT_FILE_MODE
++#endif
++	) {
+ 	    if (unlink(ep->tmp_path) < 0 && errno != ENOENT)
+ 		msg_fatal("unlink %s: %m", ep->tmp_path);
+ 	    continue;
+--- origsrc/postfix-2.11.9/src/util/file_limit.c	2003-10-22 20:48:36.000000000 +0200
++++ src/postfix-2.11.9/src/util/file_limit.c	2014-10-09 19:50:26.651136300 +0200
+@@ -83,11 +83,17 @@ void    set_file_limit(off_t limit)
+     if (ulimit(UL_SETFSIZE, limit / ULIMIT_BLOCK_SIZE) < 0)
+ 	msg_fatal("ulimit: %m");
+ #else
++#ifndef NO_SETRLIMIT_FSIZE
+     struct rlimit rlim;
+ 
+     rlim.rlim_cur = rlim.rlim_max = limit;
+     if (setrlimit(RLIMIT_FSIZE, &rlim) < 0)
+ 	msg_fatal("setrlimit: %m");
++#else
++    if (msg_verbose)
++      msg_info("setting max file size (%ld KiB) is not supported on this platform",
++	       (long)(limit / 1024));
++#endif
+ #ifdef SIGXFSZ
+     if (signal(SIGXFSZ, SIG_IGN) == SIG_ERR)
+ 	msg_fatal("signal(SIGXFSZ,SIG_IGN): %m");
+--- origsrc/postfix-2.11.9/src/util/sys_compat.c	2005-01-19 02:22:20.000000000 +0100
++++ src/postfix-2.11.9/src/util/sys_compat.c	2017-03-25 17:39:31.500824600 +0100
+@@ -62,6 +62,7 @@
+ 
+ /* System library. */
+ 
++#define SYS_COMPAT_INTERNAL
+ #include "sys_defs.h"
+ 
+  /*
+@@ -358,3 +359,438 @@ int     inet_pton(int af, const char *sr
+ }
+ 
+ #endif
++
++#ifdef CYGWIN2x
++#include <errno.h>
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include "msg.h"
++
++/*
++ * Provide hostname as FQDN
++ */
++int cygwin_gethostname(char *name, size_t size)
++{
++    if (gethostname(name, size))
++	return -1;
++    if (strchr(name, '.'))
++	return 0;
++    size_t hlen = strlen(name);
++    if (hlen + 32 > size)
++	return 0;
++
++    if (getdomainname(name+hlen+1, size-hlen-1))
++	return 0;
++    if (!name[hlen+1])
++	return 0;
++    name[hlen] = '.';
++    return 0;
++}
++
++/*
++ * Disable SO_PEERCRED handshake in Cygwin AF_UNIX emulation
++ */
++int cygwin_socket(int domain, int type, int protocol)
++{
++    int sd = socket(domain, type, protocol);
++    if (sd != -1 && domain == AF_UNIX && type == SOCK_STREAM) {
++	if (setsockopt(sd, SOL_SOCKET, SO_PEERCRED, NULL, 0))
++	    sd = -1;
++    }
++    return sd;
++}
++
++/*
++ * Cygwin root uid/gid emulation
++ */
++
++static uid_t sw_root_uid = 18;
++static gid_t sw_root_gid = 544;
++static uid_t pw_root_uid = 18;
++static uid_t pw_root_gid = 544;
++static uid_t emul_ruid = 0, emul_euid = 0;
++static uid_t emul_rgid = 0, emul_egid = 0;
++static int emul_mode = 0;
++
++static int is_init = 0;
++static int cygwin_debug = 0;
++
++#define MSG_DEBUG(args...)	(cygwin_debug     || msg_verbose > 1 ? msg_info("CYGWIN: " args) : (void)0)
++#define MSG_DEBUGX(args...)	(cygwin_debug > 1 || msg_verbose > 1 ? msg_info("CYGWIN: " args) : (void)0)
++
++#define CYGWIN_POSTFIX_DEBUG_ENV "CYGWIN_POSTFIX_DEBUG"
++#define CYGWIN_POSTFIX_UGID_ENV  "CYGWIN_POSTFIX_UGID"
++
++static void get_debug_env()
++{
++    const char *env = getenv(CYGWIN_POSTFIX_DEBUG_ENV);
++    if (!env)
++	return;
++    cygwin_debug = atoi(env);
++    if (cygwin_debug < 0)
++	cygwin_debug = 0;
++}
++
++static int get_ugid_env(const char *path)
++{
++    const char *env = getenv(CYGWIN_POSTFIX_UGID_ENV);
++    if (!env)
++	return 0;
++
++    MSG_DEBUGX("%s: " CYGWIN_POSTFIX_UGID_ENV "='%s'", path, env);
++
++    unsigned uid, gid, uid_mode, gid_mode;
++    int nc = -1;
++    sscanf(env, "%u,%u,%u,%u%n", &uid, &gid, &uid_mode, &gid_mode, &nc);
++
++    if (!(nc == (int)strlen(env) && uid && gid && uid_mode <= 2 && gid_mode <= 2))
++	msg_fatal("Syntax error in environment variable CYGWIN_POSTFIX_UGID='%s'", env);
++
++    sw_root_uid = uid;
++    sw_root_gid = gid;
++    emul_ruid = (uid_mode <= 1 ? 0 : uid);
++    emul_euid = (uid_mode == 0 ? 0 : uid);
++    emul_rgid = (gid_mode <= 1 ? 0 : gid);
++    emul_egid = (gid_mode == 0 ? 0 : gid);
++    return 1;
++}
++
++static void set_ugid_env()
++{
++    int saved_errno = errno;
++    /*
++     * Use static buffer with putenv() to avoid memory leak from setenv().
++     * Call putenv() each time because 'import_environment' filter may
++     * remove the entry between calls.
++     * Adding the variable to 'import_environment' is not needed then.
++     * Filter 'export_environment' is only used for external commands.
++     */
++    static char env[100] = CYGWIN_POSTFIX_UGID_ENV "=";
++    unsigned offs = sizeof(CYGWIN_POSTFIX_UGID_ENV);
++
++    snprintf(env+offs, sizeof(env), "%u,%u,%u,%u", sw_root_uid, sw_root_gid,
++	    (!emul_ruid ? (!emul_euid ? 0 : 1) : 2),
++	    (!emul_rgid ? (!emul_egid ? 0 : 1) : 2) );
++    putenv(env);
++    errno = saved_errno;
++}
++
++static int find_admin_gid()
++{
++    int size = getgroups(0, NULL);
++    if (size <= 0)
++	return -1;
++    gid_t groups[size];
++    getgroups(size, groups);
++    int i;
++    for (i = 0; i < size; i++) {
++	if (!groups[i] || groups[i] == 544)
++	    return groups[i];
++    }
++    return -1;
++}
++
++static int is_postfix_master(const char *path)
++{
++    const char suffix[] = "/master";
++    unsigned suflen = sizeof(suffix)-1;
++    unsigned len = strlen(path);
++    if (len <= suflen)
++	return 0;
++    if (strcmp(path + len - suflen, suffix))
++	return 0;
++    return 1;
++}
++
++static void do_init()
++{
++    int saved_errno = errno;
++    is_init = 1;
++    get_debug_env();
++
++    char path[256] = "";
++    if (readlink("/proc/self/exe", path, sizeof(path)) < 0)
++	msg_fatal("/proc/self/exe: readlink() failed: %s", strerror(errno));
++
++    int admin_gid;
++    if (get_ugid_env(path)) {
++	// Inherited root <> mail_owner switch emulation state from parent
++	emul_mode = 2;
++    }
++    else if ((admin_gid = find_admin_gid()) >= 0) {
++	// Do actual root <> user switch
++	sw_root_uid = pw_root_uid = getuid();
++	if (setgid(admin_gid))
++	    msg_fatal("setgid(%d) failed: %m", admin_gid);
++	sw_root_gid = pw_root_gid = getgid();
++    }
++    else if (is_postfix_master(path)) {
++	// Master without admin rights, emulate root <> mail_owner switch
++	sw_root_uid = getuid();
++	sw_root_gid = getgid();
++	// Inherit to child processes via environment
++	emul_mode = 1;
++	set_ugid_env();
++    }
++
++    MSG_DEBUGX("%s: sw/pw_root_uid=%d/%d, sw/pw_root_gid=%d/%d",
++	    path, sw_root_uid, pw_root_uid, sw_root_gid, pw_root_gid);
++    MSG_DEBUGX("%s: emul_r/euid=%d/%d, emul_r/egid=%d/%d",
++	    path, emul_ruid, emul_euid, emul_rgid, emul_egid);
++    MSG_DEBUGX("%s: emul_mode=%d, r/euid=%d/%d, r/egid=%d/%d", path, emul_mode,
++	    cygwin_getuid(), cygwin_geteuid(), cygwin_getgid(), cygwin_getegid());
++    errno = saved_errno;
++}
++
++static inline void init()
++{
++    if (!is_init)
++	do_init();
++}
++
++static inline void update_ugid_env()
++{
++    if (emul_mode)
++	set_ugid_env();
++}
++
++uid_t cygwin_getuid(void)
++{
++    init();
++    int uid = getuid();
++    if (uid == sw_root_uid)
++	return emul_ruid;
++    return uid;
++}
++
++uid_t cygwin_geteuid(void)
++{
++    init();
++    int uid = geteuid();
++    if (uid == sw_root_uid)
++	return emul_euid;
++    return uid;
++}
++
++gid_t cygwin_getgid(void)
++{
++    init();
++    int gid = getgid();
++    if (gid == sw_root_gid)
++	return emul_rgid;
++    return gid;
++}
++
++gid_t cygwin_getegid(void)
++{
++    init();
++    int gid = getegid();
++    if (gid == sw_root_gid)
++	return emul_egid;
++    return gid;
++}
++
++int cygwin_setuid(uid_t uid)
++{
++    init();
++    if (!uid && emul_ruid) {
++	MSG_DEBUG("setuid(%u): EPERM", uid);
++	errno = EPERM;
++	return -1;
++    }
++    if (!uid || uid == sw_root_uid) {
++	MSG_DEBUG("setuid(%u=>%u)", uid, sw_root_uid);
++	if (setuid(sw_root_uid))
++	    return -1;
++	emul_ruid = emul_euid = uid;
++	update_ugid_env();
++	return 0;
++    }
++    MSG_DEBUG("setuid(%u)", uid);
++    return setuid(uid);
++}
++
++int cygwin_seteuid(uid_t uid)
++{
++    init();
++    if (!uid && emul_ruid) {
++	MSG_DEBUG("seteuid(%u): EPERM", uid);
++	errno = EPERM;
++	return -1;
++    }
++    if (!uid || uid == sw_root_uid) {
++	MSG_DEBUG("seteuid(%u=>%u)", uid, sw_root_uid);
++	if (seteuid(sw_root_uid))
++	    return -1;
++	emul_euid = uid;
++	update_ugid_env();
++	return 0;
++    }
++    MSG_DEBUG("seteuid(%u)", uid);
++    return seteuid(uid);
++}
++
++int cygwin_setgid(gid_t gid)
++{
++    init();
++    if (!gid && emul_rgid) {
++	MSG_DEBUG("setgid(%u): EPERM", gid);
++	errno = EPERM;
++	return -1;
++    }
++    if (!gid || gid == sw_root_gid) {
++	MSG_DEBUG("setgid(%u=>%u)", gid, sw_root_gid);
++	if (setgid(sw_root_gid))
++	    return -1;
++	emul_rgid = emul_egid = gid;
++	update_ugid_env();
++	return 0;
++    }
++    MSG_DEBUG("setgid(%u)", gid);
++    return setgid(gid);
++}
++
++int cygwin_setegid(gid_t gid)
++{
++    init();
++    if (!gid && emul_rgid) {
++	MSG_DEBUG("setegid(%u) EPERM", gid);
++	errno = EPERM;
++	return -1;
++    }
++    if (!gid || gid == sw_root_gid) {
++	MSG_DEBUG("setegid(%u=>%u)", gid, sw_root_gid);
++	if (setegid(sw_root_gid))
++	    return -1;
++	emul_egid = gid;
++	update_ugid_env();
++	return 0;
++    }
++    MSG_DEBUG("setegid(%u)", gid);
++    return setegid(gid);
++}
++
++int cygwin_setgroups(int size, const gid_t *groups)
++{
++    init();
++    if (size != 1 || *groups != cygwin_getegid()) {
++	MSG_DEBUG("setgroups(%d, {%u, ...}): EPERM", size, *groups);
++	errno = EPERM;
++	return -1;
++    }
++    if (!*groups || *groups == sw_root_gid) {
++	MSG_DEBUG("setgroups(1, {%u=>%u})", *groups, sw_root_gid);
++	return setgroups(1, &sw_root_gid);
++    }
++    MSG_DEBUG("setgroups(1, {%u})", *groups);
++    return setgroups(1, groups);
++}
++
++static inline void map_root_uid(uid_t *uid)
++{
++    if (*uid == 18 || *uid == 544 || *uid == pw_root_uid)
++	*uid = 0;
++}
++
++static inline void map_root_gid(gid_t *gid)
++{
++    if (*gid == 18 || *gid == 544 || *gid == pw_root_gid)
++	*gid = 0;
++}
++
++struct passwd *cygwin_getpwnam(const char *name)
++{
++    init();
++    struct passwd *pwd = getpwnam(name);
++    if (!pwd)
++	return NULL;
++    map_root_uid(&pwd->pw_uid);
++    map_root_gid(&pwd->pw_gid);
++    return pwd;
++}
++
++struct passwd *cygwin_getpwuid(uid_t uid)
++{
++    init();
++    if (!uid)
++	uid = pw_root_uid;
++    struct passwd *pwd = getpwuid(uid);
++    if (!pwd)
++	return NULL;
++    map_root_uid(&pwd->pw_uid);
++    map_root_gid(&pwd->pw_gid);
++    return pwd;
++}
++
++struct group *cygwin_getgrnam(const char *name)
++{
++    init();
++    struct group *grp = getgrnam(name);
++    if (!grp)
++	return NULL;
++    map_root_gid(&grp->gr_gid);
++    return grp;
++}
++
++struct group *cygwin_getgrgid(gid_t gid)
++{
++    init();
++    if (!gid)
++	gid = pw_root_gid;
++    struct group *grp = getgrgid(gid);
++    if (!grp)
++	return NULL;
++    map_root_gid(&grp->gr_gid);
++    return grp;
++}
++
++int cygwin_stat(const char *path, struct stat *st)
++{
++    init();
++    if (stat(path, st))
++	return -1;
++    map_root_uid(&st->st_uid);
++    map_root_gid(&st->st_gid);
++    return 0;
++}
++
++int cygwin_lstat(const char *path, struct stat *st)
++{
++    init();
++    if (lstat(path, st))
++	return -1;
++    map_root_uid(&st->st_uid);
++    map_root_gid(&st->st_gid);
++    return 0;
++}
++
++int cygwin_fstat(int fd, struct stat *st)
++{
++    init();
++    if (fstat(fd, st))
++	return -1;
++    map_root_uid(&st->st_uid);
++    map_root_gid(&st->st_gid);
++    return 0;
++}
++
++#ifdef ALLOW_POSTSUPER_RUN_AS_ROOT
++
++void try_set_ugid(uid_t uid, gid_t gid)
++{
++    if (cygwin_geteuid() != 0)
++	msg_fatal("try_set_ugid(): euid = %u", cygwin_geteuid());
++    if (cygwin_setgid(gid) || cygwin_setuid(uid)) {
++	MSG_DEBUG("try_set_ugid(%u, %u) failed, continue with euid=%u, egid=%u", uid, gid,
++		  cygwin_geteuid(), cygwin_getegid());
++	return;
++    }
++    cygwin_setgroups(1, &gid);
++    MSG_DEBUG("try_set_ugid(%u, %u)", uid, gid);
++}
++
++#endif /* ALLOW_POSTSUPER_RUN_AS_ROOT */
++
++#endif /* CYGWIN2x */
+--- origsrc/postfix-2.11.9/src/util/sys_defs.h	2015-07-19 15:21:48.000000000 +0200
++++ src/postfix-2.11.9/src/util/sys_defs.h	2017-03-25 17:38:57.463957100 +0100
+@@ -1266,6 +1266,121 @@ extern int h_errno;
+ #endif
+ 
+  /*
++  * Cygwin.
++  */
++#ifdef CYGWIN2x
++#define SUPPORTED
++#ifndef FD_SETSIZE /* default is 64 */
++#define FD_SETSIZE	128
++#endif
++#include <sys/types.h>
++#include <sys/socket.h>
++#define UINT32_TYPE	unsigned int
++#define UINT16_TYPE	unsigned short
++#define USE_PATHS_H
++#define HAS_FLOCK_LOCK
++#define HAS_FCNTL_LOCK
++#define INTERNAL_LOCK	MYFLOCK_STYLE_FLOCK
++#define DEF_MAILBOX_LOCK "fcntl, dotlock"
++#define HAS_FSYNC
++#define HAS_DB
++#define NATIVE_DB_TYPE	"hash"
++#define ALIAS_DB_MAP	DEF_DB_TYPE ":/etc/aliases"
++#define GETTIMEOFDAY(t)	gettimeofday(t, (struct timezone *) 0)
++#define ROOT_PATH	"/usr/bin:/usr/sbin"
++#define USE_STATVFS
++#define STATVFS_IN_SYS_STATVFS_H
++#define PREPEND_PLUS_TO_OPTSTRING
++#define HAS_POSIX_REGEXP
++#define NATIVE_SENDMAIL_PATH	"/usr/sbin/sendmail"
++#define NATIVE_MAILQ_PATH	"/usr/bin/mailq"
++#define NATIVE_NEWALIAS_PATH	"/usr/bin/newaliases"
++#define NATIVE_COMMAND_DIR	"/usr/sbin"
++#define NATIVE_DAEMON_DIR	"/usr/libexec/postfix"
++#define SOCKADDR_SIZE	socklen_t
++#define SOCKOPT_SIZE	socklen_t
++#define HAS_IPV6
++#define HAVE_GETIFADDRS
++#define PREFERRED_RAND_SOURCE	"dev:/dev/urandom"
++#define USE_SYSV_POLL
++
++/* setrlimit(RLIMIT_FSIZE, .) is not implemented */
++#define NO_SETRLIMIT_FSIZE
++/* Disable -rw------- mode checks to avoid hang on noacl mounts */
++#define NO_STRICT_FMODE_CHECKS
++/* Disable strict gid overlap checks to allow 'None' group */
++#define NO_STRICT_GID_CHECKS
++/* cygrunsrv calls setpgid() before exec of master */
++#define NO_MASTER_SETSID_CHECK
++/* Could move through directory tree without directory permissions */
++#define HAVE_BYPASS_TRAVERSE_CHECKING
++/* Allow postsuper to continue even if setuid($mail_owner) fails */
++#define ALLOW_POSTSUPER_RUN_AS_ROOT
++void try_set_ugid(uid_t uid, gid_t gid);
++/* Allow postqueue to run showq as root if master is down */
++#define ALLOW_POSTQUEUE_RUN_SHOWQ_AS_ROOT
++
++/* Postfix expects FQDN from gethostname() */
++int cygwin_gethostname(char *name, size_t size);
++/* Disable SO_PEERCRED handshake in Cygwin AF_UNIX emulation */
++int cygwin_socket(int domain, int type, int protocol);
++
++/* Emulate root uid/gid */
++#include <grp.h>
++#include <pwd.h>
++#include <unistd.h>
++#include <sys/stat.h>
++
++uid_t cygwin_getuid(void);
++uid_t cygwin_geteuid(void);
++gid_t cygwin_getgid(void);
++gid_t cygwin_getegid(void);
++int cygwin_setuid(uid_t uid);
++int cygwin_seteuid(uid_t euid);
++int cygwin_setgid(gid_t gid);
++int cygwin_setegid(gid_t egid);
++int cygwin_setgroups(int size, const gid_t *list);
++struct passwd *cygwin_getpwnam(const char *name);
++struct passwd *cygwin_getpwuid(uid_t uid);
++struct group *cygwin_getgrgid(gid_t gid);
++struct group *cygwin_getgrnam(const char *name);
++int cygwin_stat(const char *path, struct stat *buf);
++int cygwin_lstat(const char *path, struct stat *buf);
++int cygwin_fstat(int fd, struct stat *buf);
++
++#ifndef SYS_COMPAT_INTERNAL
++#define gethostname(n,s)	cygwin_gethostname(n,s)
++#define socket(d,t,p)	cygwin_socket(d,t,p)
++#define getuid()	cygwin_getuid()
++#define geteuid()	cygwin_geteuid()
++#define getgid()	cygwin_getgid()
++#define getegid()	cygwin_getegid()
++#define setuid(u)	cygwin_setuid(u)
++#define seteuid(u)	cygwin_seteuid(u)
++#define setgid(g)	cygwin_setgid(g)
++#define setegid(g)	cygwin_setegid(g)
++#define setreuid(u,e)	cygwin_setreuid_MISSING(u,e)
++#define setregid(g,e)	cygwin_setregid_MISSING(g,e)
++#define getgroups(s,g)	cygwin_getgroups_MISSING(s,g)
++#define setgroups(s,g)	cygwin_setgroups(s,g)
++#define getpwnam(n)	cygwin_getpwnam(n)
++#define getpwuid(u)	cygwin_getpwuid(u)
++#define getpwnam_r(n,p,b,s,r)	cygwin_getpwnam_r_MISSING(n,p,b,s,r)
++#define getpwuid_r(u,p,b,s,r)	cygwin_getpwuid_r_MISSING(u,p,b,s,r)
++#define getgrnam(n)	cygwin_getgrnam(n)
++#define getgrgid(g)	cygwin_getgrgid(g)
++#define getgrnam_r(n,p,b,s,r)	cygwin_getgrnam_r_MISSING(n,p,b,s,r)
++#define getgrgid_r(g,p,b,s,r)	cygwin_getgrgid_r_MISSING(g,p,b,s,r)
++#define stat(p,s)	cygwin_stat(p,s)
++#define lstat(p,s)	cygwin_lstat(p,s)
++#define fstat(f,s)	cygwin_fstat(f,s)
++/* Disable stat() macros from warn_stat.h */
++#define WARN_STAT_INTERNAL
++#endif /* SYS_COMPAT_INTERNAL */
++
++#endif /* CYGWIN2x */
++
++ /*
+   * We're not going to try to guess like configure does.
+   */
+ #ifndef SUPPORTED
+--- origsrc/postfix-2.11.9/src/util/unix_listen.c	2005-06-03 01:44:05.000000000 +0200
++++ src/postfix-2.11.9/src/util/unix_listen.c	2014-10-22 21:29:44.965202100 +0200
+@@ -61,6 +61,27 @@
+ #include "listen.h"
+ #include "sane_accept.h"
+ 
++#ifdef HAVE_BYPASS_TRAVERSE_CHECKING
++/* Set group to parent dir, return appropriate mode */
++static int inherit_parent_dir_perms(const char *path)
++{
++    char dir[strlen(path)+1];
++    const char * slash = strrchr(path, '/');
++    struct stat st;
++    if (!slash)
++	return 0600;
++    strcpy(dir, path);
++    dir[slash-path] = '\0';
++    if (stat(dir, &st))
++	return 0600;
++    if (!(st.st_mode & 0070))
++	return 0600;
++    if (chown(path, -1, st.st_gid))
++	return 0600;
++    return 0660;
++}
++#endif
++
+ /* unix_listen - create UNIX-domain listener */
+ 
+ int     unix_listen(const char *addr, int backlog, int block_mode)
+@@ -69,6 +90,7 @@ int     unix_listen(const char *addr, in
+     struct sockaddr_un sun;
+     int     len = strlen(addr);
+     int     sock;
++    int     mode;
+ 
+     /*
+      * Translate address information to internal form.
+@@ -92,11 +114,17 @@ int     unix_listen(const char *addr, in
+ 	msg_fatal("remove %s: %m", addr);
+     if (bind(sock, (struct sockaddr *) & sun, sizeof(sun)) < 0)
+ 	msg_fatal("bind: %s: %m", addr);
++
++#ifdef HAVE_BYPASS_TRAVERSE_CHECKING
++    mode = inherit_parent_dir_perms(addr);
++#else
++    mode = 0666;
++#endif
+ #ifdef FCHMOD_UNIX_SOCKETS
+-    if (fchmod(sock, 0666) < 0)
++    if (fchmod(sock, mode) < 0)
+ 	msg_fatal("fchmod socket %s: %m", addr);
+ #else
+-    if (chmod(addr, 0666) < 0)
++    if (chmod(addr, mode) < 0)
+ 	msg_fatal("chmod socket %s: %m", addr);
+ #endif
+     non_blocking(sock, block_mode);

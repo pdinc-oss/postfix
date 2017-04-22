@@ -1,0 +1,1011 @@
+--- origsrc/postfix-2.11.9/CYGWIN-PATCHES/README	1970-01-01 01:00:00.000000000 +0100
++++ src/postfix-2.11.9/CYGWIN-PATCHES/README	2017-04-22 16:11:59.751837800 +0200
+@@ -0,0 +1,114 @@
++postfix
++----------------------------------------------------------------------
++Mail Transfer Agent
++
++Postfix is a Mail Transfer Agent from Wietse Venema.
++
++Runtime requirements:
++  cygwin (>=1.7.33-1)
++  coreutils
++  csih (>=0.9.8-2)
++  cygrunsrv
++  gawk
++  grep
++  libdb5.2
++  libgcc1
++  libmysqlclient18
++  libopenldap2_4_2
++  libopenssl100
++  libpcre
++  libpq5
++  libsasl2_3
++  libsqlite3
++  sed
++  recommended: syslog-ng
++
++Build requirements:
++  binutils
++  cygport
++  gcc-core
++  libdb4.8-devel
++  libmysqlclient-devel
++  libpcre-devel
++  libpq-devel
++  libsasl2-devel
++  libsqlite3-devel
++  make
++  openssl-devel
++  openldap-devel
++
++Canonical homepage:
++  http://www.postfix.org/
++
++Canonical download:
++  http://www.postfix.org/download.html
++
++Mailing lists:
++  http://www.postfix.org/lists.html
++
++License:
++  IBM Public License Version 1.0 - Secure Mailer
++
++Language:
++  C
++
++---------------------------------------------
++
++Port notes:
++
++The 'postfix-VERSION.sig' file in the source package is actually the
++upstream 'postfix-VERSION.gpg1' file.  This is because the upstream .sig
++file uses MD5 and is rejected by recent versions of GNUPG.
++The 'cygport ... download' command downloads the upstream .sig file.
++
++WARNING: Postfix security relies on POSIX features that could not be fully
++emulated on Windows.  Please do NOT use this port of postfix in security
++critical environments.
++
++Known issues:
++- This port is vulnerable to attacks via TCP localhost because it needs to
++disable the handshake of the Cygwin AF_UNIX emulation.
++
++- postscreen and other services requiring file descriptor passing do not work.
++
++- During service shutdown, the postfix master may log:
++"fatal: master_sigdeath: kill process group: No such process."
++This is harmless and could be ignored.
++
++- '/usr/sbin/postmap FILE' fails with 'seteuid(UID): Operation not permitted'
++if run with admin rights but the FILE owner (UID) is neither the current user,
++nor SYSTEM (18) nor Administrator (544).
++Workaround: Change the FILE owner, or run postmap without admin rights, or
++store the password of the FILE owner to registry with 'passwd -R'.
++
++- '/usr/sbin/postsuper' fails with 'rename file ...: Operation not permitted'
++if a new subdirectory needs to be created for an existing queue file.
++Workaround: Store password of $mail_owner to registry with 'passwd -R'.
++
++See '/etc/postfix/main.cf' sample and 'postfix-config --dryrun' output
++for further info.
++
++--------  postfix-2.11.9-1 -- 2017-04-22 --------
++Build fix for Cygwin 2.x.
++Minor fixes for postfix-config.
++Minor documentation updates and fixes.
++Removed dependency to obsolete libdb4.8 on x86.
++postfix 2.11.9  2017-01-01
++postfix 2.11.8  2016-05-15
++postfix 2.11.7  2015-10-10
++postfix 2.11.6  2015-07-21
++postfix 2.11.5  2015-04-12
++postfix 2.11.4  2015-02-09
++
++--------  postfix-2.11.3-1 -- 2014-12-11 --------
++First experimental release for Cygwin.
++postfix 2.11.3  2014-10-20
++
++
++For more information about this package, see the upstream documentation in
++/usr/share/doc/postfix.
++
++Cygwin port by: Christian Franke <franke@computer.org>
++
++Please address all questions to the Cygwin mailing list at <cygwin@cygwin.com>.
++
+--- origsrc/postfix-2.11.9/CYGWIN-PATCHES/main.cf	1970-01-01 01:00:00.000000000 +0100
++++ src/postfix-2.11.9/CYGWIN-PATCHES/main.cf	2014-11-22 21:58:14.119550900 +0100
+@@ -0,0 +1,145 @@
++# Sample /etc/postfix/main.cf for Cygwin.
++# See /usr/share/doc/postfix/main.cf.dist for the upstream version.
++
++# LOCAL PATHNAME INFORMATION
++#
++queue_directory = /var/spool/postfix
++command_directory = /usr/sbin
++daemon_directory = /usr/libexec/postfix
++data_directory = /var/lib/postfix
++manpage_directory = /usr/share/man
++# Package postfix-doc:
++#html_directory = /usr/share/doc/postfix/html
++#readme_directory = /usr/share/doc/postfix/README_FILES
++
++# QUEUE AND PROCESS OWNERSHIP
++#
++# The mail_owner parameter specifies the owner of the Postfix queue
++# and of most Postfix daemon processes.  Specify the name of a user
++# account THAT DOES NOT SHARE ITS USER OR GROUP ID WITH OTHER ACCOUNTS
++# AND THAT OWNS NO OTHER FILES OR PROCESSES ON THE SYSTEM.
++#
++# Cygwin:
++# - The strict group sharing checks done by upstream postfix are disabled.
++# This avoids problems with accounts sharing the 'None' group.
++# - The postfix service could also be run under the unprivileged
++# mail_owner if local delivery is not needed.
++#
++# Run 'postfix-config --dryrun' for further info.
++#
++#mail_owner = postfix
++
++# The default_privs parameter specifies the default rights used by
++# the local delivery agent for delivery to external file or command.
++# These rights are used in the absence of a recipient user context.
++# DO NOT SPECIFY A PRIVILEGED USER OR THE POSTFIX OWNER.
++#
++# Cygwin: The Windows default 'Guest' account (S-1-5-21-*-501) could
++# be used.
++#
++#default_privs = nobody
++
++# setgid_group: The group for mail submission and queue management
++# commands.  This must be a group name with a numerical group ID that
++# is not shared with other accounts, not even with the Postfix account.
++#
++# Cygwin: This group is not used for setgid executables.
++# Members of this group could run mailq, postqueue or sendmail.
++# The default Windows 'Users' group (S-1-5-32-545) could be used
++# if this should be enabled for all local users.
++#
++#setgid_group = postdrop
++
++# INTERNET OR INTRANET
++
++# The relayhost parameter specifies the default host to send mail to
++# when no entry is matched in the optional transport(5) table. When
++# no relayhost is given, mail is routed directly to the destination.
++#
++# On an intranet, specify the organizational domain name. If your
++# internal DNS uses no MX records, specify the name of the intranet
++# gateway host instead.
++#
++# In the case of SMTP, specify a domain, host, host:port, [host]:port,
++# [address] or [address]:port; the form [host] turns off MX lookups.
++#
++#relayhost = $mydomain
++#relayhost = [gateway.my.domain]
++#relayhost = [mailserver.isp.tld]:587
++
++# ALIAS DATABASE
++#
++# Cygwin: 'postfix-config' creates a minimal aliases file if
++# /etc/aliases is missing.
++#
++#alias_maps = hash:/etc/aliases
++#alias_database = hash:/etc/aliases
++
++# ADDRESS EXTENSIONS (e.g., user+foo)
++#
++# Cygwin: If '+' is used as recipient_delimiter, delivery to local
++# users with Cygwin name 'MACHINE+user' does not work.
++#
++#recipient_delimiter = +
++
++# DELIVERY TO MAILBOX
++#
++#home_mailbox = Mailbox
++#home_mailbox = Maildir/
++# Default:
++#mail_spool_directory = /var/spool/mail/
++#mail_spool_directory = /var/spool/mail
++#
++#mailbox_command = /usr/bin/procmail
++#mailbox_command = /usr/bin/procmail -a "$EXTENSION"
++
++# SHOW SOFTWARE VERSION OR NOT
++#
++#smtpd_banner = $myhostname ESMTP $mail_name
++#smtpd_banner = $myhostname ESMTP $mail_name ($mail_version/Cygwin)
++smtpd_banner = $myhostname ESMTP $mail_name (Cygwin)
++
++# Cygwin: 'postfix-config' updates /etc/*/*.db files for all configured
++# hash maps.
++#
++#transport_maps = hash:/etc/postfix/transport
++#virtual_alias_maps = hash:/etc/postfix/virtual
++#canonical_maps = hash:/etc/postfix/canonical
++#relocated_maps = hash:/etc/postfix/relocated
++#smtp_generic_maps = hash:/etc/postfix/generic
++
++# No local biff service.
++biff = no
++
++# TLS
++#
++# Cygwin: 'postfix-config' creates a self-signed certificate and
++# optional key file for smtpd if configured but missing.
++#
++#smtpd_tls_security_level = may
++#smtpd_tls_cert_file = /etc/postfix/smtpd-cert.pem
++##smtpd_tls_key_file = /etc/postfix/smtpd-key.pem
++#smtp_tls_security_level = may
++#smtpd_tls_session_cache_database = btree:/var/lib/postfix/smtpd_scache
++#smtp_tls_session_cache_database = btree:/var/lib/postfix/smtp_scache
++
++# SASL
++#
++#smtpd_sasl_auth_enable = yes
++#smtp_sasl_auth_enable = yes
++#smtp_sasl_security_options = noanonymous
++#smtp_sasl_password_maps = hash:/etc/postfix/smtp_passwd
++
++# DEBUG HELP
++#
++#soft_bounce = yes
++#debug_peer_level = 2
++#debug_peer_list = 127.0.0.1
++#smtp_tls_loglevel = 2
++#smtpd_tls_loglevel = 2
++#smtpd_sasl_authenticated_header = yes
++#smtpd_tls_received_header = yes
++
++# IPv6 is enabled by default.
++#inet_protocols = all
++inet_protocols = ipv4
+--- origsrc/postfix-2.11.9/CYGWIN-PATCHES/postfix-config	1970-01-01 01:00:00.000000000 +0100
++++ src/postfix-2.11.9/CYGWIN-PATCHES/postfix-config	2017-04-01 14:10:04.884719400 +0200
+@@ -0,0 +1,743 @@
++#!/bin/bash
++#
++# postfix-config: Configuration script for the Cygwin port of postfix
++#
++# Copyright (C) 2014-17 Christian Franke
++#
++
++myname=$0
++
++usage()
++{
++  /usr/bin/cat <<EOF
++Usage: $myname [OPTION]...
++
++This script installs postfix as a service.
++
++Options:
++  -y, --yes              Answer all questions with "yes" automatically.
++  -n, --no               Answer all questions with "no" automatically.
++  -c, --cygwin ENV       Use ENV as value for CYGWIN environment variable.
++  -N, --name NAME        Name of windows service [postfix].
++  -u, --user ACCOUNT     Privileged account for the service.
++  -w, --pwd PASSWD       Password for privileged user account.
++  -o, --ownerpwd PASSWD  Password for postfix mail_owner account.
++  --debug                Enable shell's debug output.
++  --dryrun               Do not apply any changes, print commands instead.
++EOF
++  exit 1
++}
++
++# Init csih
++CSIH_SCRIPT=/usr/share/csih/cygwin-service-installation-helper.sh
++
++# Checked for existence by csih_sanity_check
++declare -a csih_required_commands=(
++  /usr/bin/cat coreutils
++  /usr/bin/cp coreutils
++  /usr/bin/chmod coreutils
++  /usr/bin/chown coreutils
++  /usr/bin/id coreutils
++  /usr/bin/rm coreutils
++  /usr/bin/mkdir coreutils
++  /usr/bin/mkgroup cygwin
++  /usr/bin/passwd cygwin
++  /usr/bin/ps cygwin
++  /usr/bin/tzset cygwin
++  /usr/bin/editrights editrights
++  /usr/bin/getent getent
++  /usr/bin/grep grep
++  /usr/bin/sed sed
++  /usr/bin/openssl openssl
++  /usr/bin/setsid util-linux
++  /usr/sbin/alternatives alternatives
++  /usr/sbin/postalias postfix
++  /usr/sbin/postconf postfix
++  /usr/sbin/postmap postfix
++)
++
++csih_sanity_check_server=yes
++source $CSIH_SCRIPT || exit 1
++type -t csih_create_local_group >/dev/null ||
++  csih_error "Outdated version of '$CSIH_SCRIPT'"
++
++# Options
++opt_cygwin=""
++opt_name="postfix"
++opt_user=""
++opt_priv_pwd=""
++opt_owner_pwd=""
++
++# --dryrun support
++e= #echo
++
++echocsih_create_privileged_user()
++{
++  echo "csih_create_privileged_user $*"
++  csih_PRIVILEGED_PASSWORD=$1
++}
++
++echocsih_create_unprivileged_user()
++{
++  if local_accounts_have_prefix passwd; then
++    csih_UNPRIVILEGED_USERWINNAME="$HOSTNAME+$1"
++  else
++    csih_UNPRIVILEGED_USERWINNAME=$1
++  fi
++  echo "csih_create_unprivileged_user $*: $csih_UNPRIVILEGED_USERWINNAME"
++}
++
++echocsih_create_local_group()
++{
++  if local_accounts_have_prefix group; then
++    csih_LOCAL_GROUPWINNAME="$HOSTNAME+$1"
++  else
++    csih_LOCAL_GROUPWINNAME=$1
++  fi
++  echo "csih_create_local_group $*: $csih_LOCAL_GROUPWINNAME"
++}
++
++echocsih_service_should_run_as()
++{
++  echo "$csih_PRIVILEGED_USERNAME"
++}
++
++check_system_accounts()
++{
++  local ret=0
++  csih_get_system_and_admins_ids || let ++ret
++
++  case " $(/usr/bin/id -G) " in
++    *" $csih_ADMINSGID "*) ;;
++    *) csih_warning "This script requires administrator privileges."
++       csih_request "Do you want to proceed anyway?" || exit 1
++  esac
++
++  if [ "$csih_SYSTEMUID" != "18" ]; then
++    csih_error_recoverable "SYSTEM UID $csih_SYSTEMUID is not 18."
++    let ++ret
++  fi
++  if [ "$csih_SYSTEMGID" != "18" ]; then
++    csih_error_recoverable "SYSTEM GID $csih_SYSTEMGID is not 18."
++    let ++ret
++  fi
++  if [ "$csih_ADMINSUID" != "544" ]; then
++    csih_error_recoverable "Administrator UID $csih_ADMINSUID is not 544."
++    let ++ret
++  fi
++  if [ "$csih_ADMINSGID" != "0" ] && [ "$csih_ADMINSGID" != "544" ]; then
++    csih_error_recoverable "Administrator GID $csih_ADMINSGID is not 0 or 544."
++    let ++ret
++  fi
++  local name
++  if name=$(/usr/bin/id -un 0 2>/dev/null); then
++    csih_error_recoverable "A user with ID 0 exists ('$name')."
++    let ++ret
++  fi
++
++  if [ $ret -ne 0 ]; then
++    csih_warning "This may break postfix due to hard coded system UIDs/GIDs."
++    csih_request "Do you want to proceed anyway?" || exit 1
++  fi
++  return $ret
++}
++
++copy_postfix_defaults()
++{
++  local ret=0
++  local f
++  for f in main.cf master.cf; do
++    if [ ! -f "/etc/postfix/$f" ]; then
++      csih_inform "Restoring '/etc/postfix/$f' from '/etc/defaults/etc/postfix/'.";
++      $e /usr/bin/mkdir -p /etc/postfix
++      $e /usr/bin/cp -p "/etc/defaults/etc/postfix/$f" "/etc/postfix/$f" || let ++ret
++    fi
++  done
++  return $ret
++}
++
++mail_owner="" # set by check_postfix_config()
++default_privs=""
++setgid_group=""
++
++check_postfix_config()
++{
++  local val
++  val=$(/usr/sbin/postconf -h "config_directory") || exit 1
++  [ "$val" == "/etc/postfix" ] ||
++    csih_error "Unexpected postfix parameter 'config_directory = $val'."
++
++  # Get user/group names
++  local parm
++  for parm in mail_owner default_privs setgid_group; do
++    val=$(/usr/sbin/postconf -hx "$parm")
++    eval "$parm='$val'"
++    [ -n "$val" ] || csih_error "Missing /etc/postfix/main.cf parameter '$parm'."
++  done
++
++  return 0
++}
++
++install_alternatives()
++{
++  echo
++  if LC_MESSAGES=C /usr/sbin/alternatives --display mta \
++     | grep -q "link currently points to /usr/sbin/sendmail\.postfix\.exe\$"; then
++    csih_inform "Symlinks to sendmail(1) emulation are already installed."
++    return 0
++  fi
++
++  csih_inform "Installing symlinks to sendmail(1) emulation."
++  local list="
++    /usr/sbin/sendmail /usr/lib/sendmail /usr/bin/mailq /usr/bin/newaliases
++    /usr/share/man/man1/sendmail.1.gz    /usr/share/man/man1/mailq.1.gz
++    /usr/share/man/man1/newaliases.1.gz  /usr/share/man/man5/aliases.5.gz
++  "
++  local f
++  for f in $list; do
++    if [ -e "$f" ] && [ ! -L "$f" ]; then
++      csih_warning "'$f' exists and is not a symlink."
++      return 1
++    fi
++  done
++  $e rm -f $list
++
++  $e /usr/sbin/alternatives \
++    --install /usr/sbin/sendmail mta /usr/sbin/sendmail.postfix.exe 0 \
++    --slave /usr/lib/sendmail mta-sendmail /usr/sbin/sendmail.postfix.exe \
++    --slave /usr/bin/mailq mta-mailq /usr/sbin/sendmail.postfix.exe \
++    --slave /usr/bin/newaliases mta-newaliases /usr/sbin/sendmail.postfix.exe \
++    --slave /usr/share/man/man1/sendmail.1.gz mta-sendmail-man /usr/share/man/man1/sendmail.postfix.1.gz \
++    --slave /usr/share/man/man1/mailq.1.gz mta-mailq-man /usr/share/man/man1/sendmail.postfix.1.gz \
++    --slave /usr/share/man/man1/newaliases.1.gz mta-newaliases-man /usr/share/man/man1/sendmail.postfix.1.gz \
++    --slave /usr/share/man/man5/aliases.5.gz mta-aliases-man /usr/share/man/man5/aliases.postfix.5.gz
++
++  if ! $e /usr/sbin/alternatives --set mta /usr/sbin/sendmail.postfix.exe; then
++    csih_warning "Installing symlinks failed."
++    return 1
++  fi
++  return 0
++}
++
++local_accounts_have_prefix()
++{
++  csih_use_file_etc $1 && return 1
++  [ "\\\\${COMPUTERNAME,,*}" = "${LOGONSERVER,,*}" ] && return 1
++  return 0
++}
++
++main_cf_saved=
++
++save_main_cf()
++{
++  [ $main_cf_saved ] && return
++  local f=/etc/postfix/main.cf t
++  t=$(mktemp ${e:+-u} "$f.XXXXXXXXXX") || exit 1
++  $e cp -p "$f" "$t" || exit 1
++  $e cp -p --backup=t "$t" "$f" || exit 1
++  $e rm -f "$t"
++  main_cf_saved=t
++}
++
++change_postfix_parm()
++{
++  local parm=$1 val=$2
++  save_main_cf
++  $e /usr/sbin/postconf -e "$parm=$val" || exit 1
++  csih_inform "Postfix parameter '$parm' changed to '$val'."
++  return 0
++}
++
++check_postfix_account()
++{
++  local type=$1 parm=$2 msg=$3
++  local name
++  eval "name=\$$parm"
++
++  # Return if Cygwin name already exists
++  if /usr/bin/getent $type "$name" >/dev/null; then
++    csih_inform "Postfix $msg '$name' exists."
++    return 0
++  fi
++
++  # Try whether version with(out) prefix exists
++  local name_win=${name#*+}
++  local map_entry
++  if [ "$name" != "$name_win" ]; then
++    map_entry=$(/usr/bin/getent $type "$name_win")
++  else
++    map_entry=$(/usr/bin/getent $type "$COMPUTERNAME+$name_win")
++  fi
++
++  if [ -n "$map_entry" ]; then
++    local name_cyg=${map_entry%%:*}
++    csih_inform "Postfix $msg '$name' does not exist,"
++    if ! csih_request "but '$name_cyg' exists - change the postfix parameter?"; then
++      csih_warning "Creating postfix $msg '$name' failed."
++      return 1
++    fi
++
++    change_postfix_parm $parm "$name_cyg"
++    eval "$parm=\$name_cyg"
++    return 0
++  fi
++
++  # Create local Windows user/group without prefix
++  eval "${parm}_win=\$name_win"
++  return 0
++}
++
++create_postfix_account()
++{
++  local type=$1 parm=$2 msg=$3
++  local name_win
++  eval "name_win=\$${parm}_win"
++  [ -n "$name_win" ] || return 0
++
++  echo
++  local name name_cyg
++  eval "name=\$$parm"
++
++  # Guess Cygwin name which will be created
++  if ! local_accounts_have_prefix $type; then
++    # files-only mode or no domain member machine
++    name_cyg=$name_win
++  else
++    # db used and domain member machine
++    name_cyg="$COMPUTERNAME+$name_win"
++  fi
++
++  if [ "${name_cyg,,*}" != "${name,,*}" ]; then
++    csih_inform "Postfix $msg '$name' could not be created."
++    if ! csih_request "Create '$name_cyg' and change the postfix parameter?"; then
++      csih_warning "Creating postfix $msg '$name' failed."
++      return 1
++    fi
++  else
++    csih_inform "Postfix $msg '$name' does not exist."
++  fi
++
++  name_cyg=
++  case $type in
++    passwd) ${e}csih_create_unprivileged_user "$name_win" \
++            && name_cyg=$csih_UNPRIVILEGED_USERWINNAME ;;
++    group)  ${e}csih_create_local_group "$name_win" \
++            && name_cyg=$csih_LOCAL_GROUPWINNAME ;;
++    *) csih_error "create_postfix_account: invalid parameter"
++  esac
++  if [ -z "$name_cyg" ]; then
++    csih_warning "Creating postfix $msg '$name' failed."
++    return 1
++  fi
++  csih_inform "Postfix $msg '$name_cyg' created."
++
++  if [ "${name_cyg,,*}" != "${name,,*}" ]; then
++    # Cygwin name was modified
++    change_postfix_parm $parm "$name_cyg"
++    eval "$parm=\$name_cyg"
++  fi
++  return 0
++}
++
++set_passwd()
++{
++  local pwd="$1"; shift
++  if [ -n "$e" ]; then
++    echo "/usr/bin/setsid -w /usr/bin/passwd $@ >/dev/null 2>&1 <<<'$pwd\n$pwd\n'"
++  else
++    /usr/bin/setsid -w /usr/bin/passwd "$@" >/dev/null 2>&1 <<EOF
++$pwd
++$pwd
++EOF
++  fi
++}
++
++mail_owner_pwd=""  # set by set_postfix_mail_owner_pwd()
++
++set_postfix_mail_owner_pwd()
++{
++  local password=$1
++  [ -n "$mail_owner_win" ] || return 0
++
++  if [ -z "$password" ]; then
++    csih_inform "A password for postfix mail_owner account '$mail_owner'"
++    csih_inform "(Windows name: '$mail_owner_win') is only required if:"
++    csih_inform "- the postfix service could be run under this unprivileged account,"
++    csih_inform "- some rare use cases of '/usr/sbin/postsuper' should work."
++    csih_inform "The latter also requires to save the password to registry (passwd -R)."
++    csih_request "Set a password for '$mail_owner'?" || return 0
++
++    csih_get_value "Please enter a new password for user '$mail_owner':" -s
++    password=$csih_value
++  fi
++
++  # Unlock user, Password never expires
++  if ! $e /usr/bin/passwd -u "$mail_owner_win"; then
++    csih_warning "Unlocking of Windows user '$mail_owner_win' failed."
++    return 1;
++  fi
++  if ! $e /usr/bin/passwd -e "$mail_owner_win"; then
++    csih_warning "Setting password expiry of Windows user '$mail_owner_win' failed."
++    return 1;
++  fi
++
++  # Set Windows password
++  if ! set_passwd "$password" "$mail_owner_win"; then
++    csih_warning "Setting password of Windows user '$mail_owner_win' failed."
++    return 1;
++  fi
++  mail_owner_pwd=$password
++
++  # Save password in registry
++  if csih_request "Save the password also to registry (passwd -R)?" \
++     && ! set_passwd "$password" -R "$mail_owner"; then
++    csih_warning "Saving password for user account '$mail_owner' to registry failed."
++    return 1;
++  fi
++  return 0
++}
++
++create_postfix_accounts()
++{
++  local ret=0
++
++  # Check user/group
++  echo
++  local mail_owner_win default_privs_win setgid_group_win
++  check_postfix_account passwd mail_owner    "mail_owner account"    || let ++ret
++  check_postfix_account passwd default_privs "default_privs account" || let ++ret
++  check_postfix_account group  setgid_group  "setgid_group"          || let ++ret
++
++  # Create missing user/group
++  create_postfix_account passwd mail_owner    "mail_owner account"    || let ++ret
++  set_postfix_mail_owner_pwd "$opt_owner_pwd" || let ++ret
++  create_postfix_account passwd default_privs "default_privs account" || let ++ret
++  create_postfix_account group  setgid_group  "setgid_group"          || let ++ret
++  return $ret
++}
++
++query_account_type()
++{
++  if [ -z "$opt_user" ]; then
++    echo
++    csih_inform "The postfix service could be run under three types of accounts:"
++    echo
++    csih_inform "- A privileged account (defaults to 'cyg_server'): This could change user"
++    csih_inform "  context without knowing the passwords.  Delivery to local mailboxes should"
++    csih_inform "  work then."
++    echo
++    csih_inform "- The 'LocalSystem' ('SYSTEM') account: This would require 'passwd -R' method"
++    csih_inform "  or the 'cyglsa' package if delivery to local mailboxes is desired, see:"
++    csih_inform "  https://cygwin.com/cygwin-ug-net/ntsec.html#ntsec-nopasswd2"
++    echo
++    csih_inform "- The unprivileged postfix mail_owner ('$mail_owner') account: Delivery to local"
++    csih_inform "  mailboxes is not supported then."
++    echo
++    csih_request "Install postfix service under a privileged account?" && return 1
++    csih_request "Install postfix service under the 'LocalSystem' ('SYSTEM') account?" && return 2
++    csih_request "Install postfix service under the unprivileged '$mail_owner' account?" && return 3
++  elif [ "$opt_user" = "SYSTEM" ]; then
++    csih_request "Install postfix service under the 'LocalSystem' ('SYSTEM') account?" && return 2
++  elif [ "$opt_user" = "$mail_owner" ]; then
++    csih_request "Install postfix service under the unprivileged '$mail_owner' account?" && return 3
++  else
++    csih_request "Install postfix service under the privileged '$opt_user' account?" && return 1
++  fi
++  return 0
++}
++
++run_service_as="" # set by install_postfix_service()
++
++install_postfix_service()
++{
++  local ret=0
++  echo
++
++  # Skip if already installed
++  local info
++  if info=$(/usr/bin/cygrunsrv -VQ "$opt_name" 2>/dev/null); then
++    info=$(echo "$info" | /usr/bin/sed -n 's,\\,/,g;s,^Account *: *,,p')
++    csih_inform "Service '$opt_name' is already installed under the '$info' account."
++    return $ret
++  fi
++
++  # Select account
++  local password options
++
++  query_account_type
++  case $? in
++    1)
++      # Create privileged account if required
++      echo
++      [ -n "$csih_auto_answer" -o -n "$opt_user" ] && options=( -f )
++      [ -n "$opt_user" ] && options+=( -u "$opt_user" )
++      csih_select_privileged_username "${options[@]}" postfix
++
++      ${e}csih_create_privileged_user "$opt_priv_pwd" ||
++        csih_error "Creating privileged user failed."
++
++      run_service_as=$( ${e}csih_service_should_run_as )
++      password=$csih_PRIVILEGED_PASSWORD
++      ;;
++
++    2)
++      run_service_as=SYSTEM
++      ;;
++
++    3)
++      run_service_as=$mail_owner
++      password=$mail_owner_pwd
++      [ -n "$password" ] || password=$opt_owner_pwd
++      echo
++      csih_inform "Adding 'SeServiceLogonRight' to user '$run_service_as'."
++      if ! $e /usr/bin/editrights -u "$run_service_as" -a SeServiceLogonRight; then
++        csih_warning "Adding 'SeServiceLogonRight' to user '$run_service_as' failed."
++        let ++ret
++      fi
++      ;;
++
++    *)
++      echo
++      csih_inform "Skipping postfix service installation."
++      return $ret
++      ;;
++  esac
++
++  # Get password if required
++  options=()
++  if [ "$run_service_as" != "SYSTEM" ]; then
++    if [ -z "$password" ]; then
++      echo
++      csih_get_value "Please enter the current password for user '$run_service_as':" -s
++      password=$csih_value
++    fi
++    options=( -u "$run_service_as" -w "$password" )
++  fi
++
++  # Always set TZ for service
++  local tzval=$TZ
++  if [ -z "$tzval" ]; then
++    tzval=$(/usr/bin/tzset)
++    echo
++    csih_inform "Using TZ='$tzval' for postfix service."
++  fi
++  options+=( -e "TZ=$tzval" )
++
++  # Set optional CYGWIN variable
++  echo
++  csih_get_cygenv "$opt_cygwin"
++  [ -n "$csih_cygenv" ] && options+=( -e "CYGWIN=$csih_cygenv" )
++
++  # Display name must also be unique
++  local dispname="CYGWIN postfix"
++  [ "$opt_name" = "postfix" ] || dispname+=" ($opt_name)"
++
++  # Install service
++  if ! $e /usr/bin/cygrunsrv \
++      -I "$opt_name" -d "$dispname" \
++      -c /var/spool/postfix \
++      -p /usr/libexec/postfix/master \
++      "${options[@]}"
++  then
++    echo
++    csih_error "Installing service '$opt_name' under the '$run_service_as' account failed."
++  fi
++
++  echo
++  csih_inform "The '$opt_name' service has been installed under the '$run_service_as' account."
++  csih_inform "To start the service, run 'cygrunsrv -S $opt_name' or 'net start $opt_name'."
++  csih_inform "Otherwise, it will start automatically after the next reboot."
++  csih_inform "Do not use '/usr/sbin/postfix start' ('reload' and 'stop' could be used)".
++
++  return $ret
++}
++
++mkdir_own_mod()
++{
++  local dir=$1 own=$2 mod=$3
++  $e /usr/bin/mkdir -p "$dir" || return 1
++  $e /usr/bin/chown -R "$own" "$dir" || return 1
++  # Don't "chmod -R", queue file status is encoded in mode bits
++  $e /usr/bin/chmod "$mod" "$dir" || return 1
++  return 0
++}
++
++set_postfix_permissions()
++{
++  local ret=0
++  echo
++  csih_inform "Updating spool directory permissions."
++
++  local spool="/var/spool/postfix"
++  local d
++  for d in active bounce corrupt defer deferred \
++           flush hold incoming private saved trace; do
++    mkdir_own_mod "$spool/$d" "$mail_owner:" 700 || let ++ret
++  done
++  mkdir_own_mod "$spool/maildrop" "$mail_owner:$setgid_group" 730 || let ++ret
++  mkdir_own_mod "$spool/public"   "$mail_owner:$setgid_group" 710 || let ++ret
++
++  mkdir_own_mod "/var/lib/postfix" "$mail_owner:" 700 || let ++ret
++
++  [ -n "$run_service_as" ] || return $ret
++
++  mkdir_own_mod "$spool/pid" "$run_service_as:" 755 || let ++ret
++  $e /usr/bin/chown "$run_service_as:" "$spool" && $e /usr/bin/chmod 755 "$spool" || let ++ret
++
++  if [ -f "/var/log/$opt_name.log" ]; then
++    $e /usr/bin/chown "$run_service_as:" "/var/log/$opt_name.log" || let ++ret
++  fi
++
++  return $ret
++}
++
++create_etc_aliases()
++{
++  local f=$1 name
++  name=$(/usr/bin/id -un) || return 1
++  if [ -n "$e" ]; then
++    $e "/usr/bin/cat <<<'... postmaster: $name ...' > $f"
++  else
++    /usr/bin/cat <<-EOF > "$f" || return 1
++	# aliases(5) file created by $myname
++	postmaster:     $name
++	MAILER-DAEMON:  postmaster
++EOF
++  fi
++  return 0
++}
++
++update_hash_db()
++{
++  local type=$1 f=$2
++  if [ ! -f "$f" ]; then
++    if [ "$type:$f" != "alias:/etc/aliases" ] || [ -f "$f.db" ]; then
++      csih_warning "'$f' does not exist."
++      return 1
++    fi
++    csih_inform "Creating '$f'."
++    create_etc_aliases "$f" || return 1
++  fi
++
++  if [ -f "$f.db" ] && [ ! "$f.db" -ot "$f" ]; then
++    csih_inform "Hash map '$f.db' is up to date."
++    return 0
++  fi
++
++  csih_inform "Creating '$f.db' from '$f'."
++  $e /usr/sbin/post$type "$f" || return 1
++  $e /usr/bin/chown --reference="$f" "$f.db" || return 1
++  return 0
++}
++
++update_postfix_hash_dbs()
++{
++  local ret=0
++  echo
++
++  local f
++  for f in $(/usr/sbin/postconf -hx alias_maps \
++             | sed 's,[ ,],\n,g' \
++             | sed -n 's,^hash:\(/etc/.*\)$,\1,p'); do
++    update_hash_db alias "$f" || let ++ret
++  done
++
++  # No postconf -x to avoid duplicates and $alias_maps expansion
++  for f in $(/usr/sbin/postconf \
++             | sed -n '/^alias_/d;s,^[a-zA-Z0-9_]* *= *,,p' \
++             | sed 's,[ ,],\n,g' \
++             | sed -n 's,^hash:\(/etc/.*\)$,\1,p'); do
++    update_hash_db map "$f" || let ++ret
++  done
++  return $ret
++}
++
++create_postfix_smtpd_cert()
++{
++  local cert key
++  cert=$(/usr/sbin/postconf -hx smtpd_tls_cert_file) || return 1
++  key=$(/usr/sbin/postconf -hx smtpd_tls_key_file)   || return 1
++  [ -n "$cert" ] && [ -n "$key" ] || return 0
++
++  echo
++  if [ -f "$cert" ] || [ -f "$key" ]; then
++    if [ ! -f "$key" ]; then
++      csih_warning "Key file '$key' does not exist."
++      return 1
++    fi
++    if [ ! -f "$cert" ]; then
++      csih_warning "Certificate '$cert' does not exist."
++      return 1
++    fi
++    csih_inform "Certificate '$cert' exists."
++    [ "$cert" -ef "$key" ] || csih_inform "Key file    '$key' exists."
++    return 0
++  fi
++
++  local myhostname
++  myhostname=$(/usr/sbin/postconf -hx myhostname) || return 1
++  csih_inform "Creating self-signed certificate '$cert'"
++  csih_inform "for hostname '$myhostname'."
++
++  if ! $e /usr/bin/openssl req -new -x509 -nodes -days 3652 \
++                           -out "$cert" -keyout "$key" \
++                           -subj "/CN=$myhostname"
++  then
++    csih_warning "Creation of certificate '$cert' failed."
++    return 1
++  fi
++
++  # /usr/bin/openssl x509 -text -in "$cert" -noout > "$cert.txt"
++
++  $e /usr/bin/chmod 644 "$cert" || return 1
++  $e /usr/bin/chmod 600 "$key"  || return 1
++  if [ -n "$run_service_as" ]; then
++    $e /usr/bin/chown "$run_service_as:" "$key" "$cert" || return 1
++  fi
++  return 0
++}
++
++
++# Parse options
++while [ $# -gt 0 ]; do
++  case $1 in
++    -y|--yes)      csih_auto_answer=yes ;;
++    -n|--no)       csih_auto_answer=no  ;;
++    -c|--cygwin)   shift; opt_cygwin=$1 ;;
++    -N|--name)     shift; opt_name=$1 ;;
++    -u|--user)     shift; opt_user=$1 ;;
++    -w|--pwd)      shift; opt_priv_pwd=$1 ;;
++    -o|--ownerpwd) shift; opt_owner_pwd=$1 ;;
++    --debug)       set -x; csih_trace_on ;;
++    --dryrun)      e=echo ;;
++    *) usage ;;
++  esac
++  shift
++done
++
++if /usr/bin/ps -e | /usr/bin/grep -q '/postfix/master$'; then
++  csih_error "Postfix master process is still running."
++fi
++
++errs=0
++
++check_system_accounts || let errs+=$?
++copy_postfix_defaults || let errs+=$?
++check_postfix_config || let errs+=$?
++install_alternatives || let errs+=$?
++create_postfix_accounts || let errs+=$?
++install_postfix_service || let errs+=$?
++set_postfix_permissions || let errs+=$?
++update_postfix_hash_dbs || let errs+=$?
++create_postfix_smtpd_cert || let errs+=$?
++
++echo
++if [ $errs -ne 0 ]; then
++  csih_warning "Postfix configuration exited with $errs errors or warnings."
++  csih_warning "Make sure that all problems reported are fixed,"
++  csih_warning "then re-run $myname ."
++  exit $errs
++fi
++
++csih_inform "Postfix configuration finished successfully."
++exit 0
