@@ -1,16 +1,33 @@
 # cygport script for postfix
 NAME=postfix
 VERSION=2.11.9
-RELEASE=1
+RELEASE=2
 
 SUMMARY="Mail Transfer Agent"
 
 DESCRIPTION="Postfix is a Mail Transfer Agent from Wietse Venema."
 
 CATEGORY="Mail"
-REQUIRES="alternatives coreutils csih cygrunsrv editrights getent grep sed util-linux"
-        # bash libdb4.8 libgcc1 libmysqlclient18 libopenldap2_4_2
-        # libopenssl100 libpcre1 libpq5 libsasl2_3 libsqlite3_0 perl_base
+REQUIRES=""
+REQUIRES+=" alternatives"
+REQUIRES+=" coreutils"
+REQUIRES+=" csih"
+REQUIRES+=" cygrunsrv"
+REQUIRES+=" editrights"
+REQUIRES+=" getent"
+REQUIRES+=" grep"
+REQUIRES+=" sed"
+REQUIRES+=" util-linux"
+
+BUILD_REQUIRES=""
+BUILD_REQUIRES+=" libdb-devel"
+BUILD_REQUIRES+=" libmysqlclient-devel"
+BUILD_REQUIRES+=" libpcre-devel"
+BUILD_REQUIRES+=" libpq-devel"
+BUILD_REQUIRES+=" libpq5"
+BUILD_REQUIRES+=" libsqlite3-devel"
+BUILD_REQUIRES+=" openldap-devel"
+BUILD_REQUIRES+=" openssl-devel"
 
 HOMEPAGE="http://www.postfix.org/"
 SRC_URI="
