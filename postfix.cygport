@@ -1,7 +1,7 @@
 # cygport script for postfix
 NAME=postfix
 VERSION=2.11.9
-RELEASE=2
+RELEASE=3
 
 SUMMARY="Mail Transfer Agent"
 

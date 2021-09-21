@@ -15,7 +15,7 @@
  		SYSLIBS="-lresolv -lsocket -lnsl -lc -lrpcsvc -L/usr/ucblib -lucb"
  		;;
  
-+    CYGWIN_NT-*.*.2.[0-9]*)	SYSTYPE=CYGWIN2x
++    CYGWIN_NT-*.*.3.[0-9]*)	SYSTYPE=CYGWIN2x
 +		SYSLIBS="$SYSLIBS -ldb"
 +		;;
 +
