@@ -1,7 +1,7 @@
 # cygport script for postfix
 NAME=postfix
 VERSION=2.11.9
-RELEASE=3
+RELEASE=4
 
 SUMMARY="Mail Transfer Agent"
 
@@ -33,6 +33,10 @@ HOMEPAGE="http://www.postfix.org/"
 SRC_URI="
   ftp://ftp.porcupine.org/mirrors/postfix-release/official/postfix-${PV}.tar.gz
   ftp://ftp.porcupine.org/mirrors/postfix-release/official/postfix-${PV}.tar.gz.sig
+"
+
+PATCH_URI="
+  openssl-1.1.0.patch
 "
 
 PKG_NAMES="postfix postfix-doc postfix-tools"
