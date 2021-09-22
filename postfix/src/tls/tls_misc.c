@@ -250,12 +250,8 @@ static const NAME_CODE protocol_table[] = {
     SSL_TXT_SSLV2, TLS_PROTOCOL_SSLv2,
     SSL_TXT_SSLV3, TLS_PROTOCOL_SSLv3,
     SSL_TXT_TLSV1, TLS_PROTOCOL_TLSv1,
-#ifdef SSL_TXT_TLSV1_1
     SSL_TXT_TLSV1_1, TLS_PROTOCOL_TLSv1_1,
-#endif
-#ifdef SSL_TXT_TLSV1_2
     SSL_TXT_TLSV1_2, TLS_PROTOCOL_TLSv1_2,
-#endif
     0, TLS_PROTOCOL_INVALID,
 };
 
@@ -360,6 +356,18 @@ static const LONG_NAME_MASK ssl_op_tweaks[] = {
 };
 
  /*
+  * Once these have been a NOOP long enough, they might some day be removed
+  * from OpenSSL.  The defines below will avoid bitrot issues if/when that
+  * happens.
+  */
+#ifndef SSL_OP_SINGLE_DH_USE
+#define SSL_OP_SINGLE_DH_USE 0
+#endif
+#ifndef SSL_OP_SINGLE_ECDH_USE
+#define SSL_OP_SINGLE_ECDH_USE 0
+#endif
+
+ /*
   * Ciphersuite name <=> code conversion.
   */
 const NAME_CODE tls_cipher_grade_table[] = {
@@ -462,7 +470,7 @@ static const char *tls_exclude_missing(SSL_CTX *ctx, VSTRING *buf)
     static ARGV *exclude;		/* Cached */
     SSL    *s = 0;
     ssl_cipher_stack_t *ciphers;
-    SSL_CIPHER *c;
+    const SSL_CIPHER *c;
     const cipher_probe_t *probe;
     int     alg_bits;
     int     num;
@@ -935,7 +943,7 @@ void    tls_check_version(void)
     TLS_VINFO lib_info;
 
     tls_version_split(OPENSSL_VERSION_NUMBER, &hdr_info);
-    tls_version_split(SSLeay(), &lib_info);
+    tls_version_split(OpenSSL_version_num(), &lib_info);
 
     if (lib_info.major != hdr_info.major
 	|| lib_info.minor != hdr_info.minor
@@ -954,7 +962,7 @@ long    tls_bug_bits(void)
 
 #if OPENSSL_VERSION_NUMBER >= 0x00908000L && \
 	OPENSSL_VERSION_NUMBER < 0x10000000L
-    long    lib_version = SSLeay();
+    long    lib_version = OpenSSL_version_num();
 
     /*
      * In OpenSSL 0.9.8[ab], enabling zlib compression breaks the padding bug
@@ -998,6 +1006,14 @@ long    tls_bug_bits(void)
 	enable &= ~(SSL_OP_ALL | TLS_SSL_OP_MANAGED_BITS);
 	bits |= enable;
     }
+
+    /*
+     * We unconditionally avoid re-use of ephemeral keys, note that we set DH
+     * keys via a callback, so reuse was never possible, but the ECDH key is
+     * set statically, so that is potentially subject to reuse.  Set both
+     * options just in case.
+     */
+    bits |= SSL_OP_SINGLE_ECDH_USE | SSL_OP_SINGLE_DH_USE;
     return (bits);
 }
 

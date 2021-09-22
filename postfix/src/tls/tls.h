@@ -75,13 +75,28 @@ extern const NAME_CODE tls_level_table[];
 
  /* Appease indent(1) */
 #define x509_stack_t STACK_OF(X509)
-#define x509_extension_stack_t STACK_OF(X509_EXTENSION)
 #define general_name_stack_t STACK_OF(GENERAL_NAME)
 #define ssl_cipher_stack_t STACK_OF(SSL_CIPHER)
 #define ssl_comp_stack_t STACK_OF(SSL_COMP)
 
 #if (OPENSSL_VERSION_NUMBER < 0x00090700f)
 #error "need OpenSSL version 0.9.7 or later"
+#endif
+
+ /* Backwards compatibility with OpenSSL < 1.1.0 */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+#define OpenSSL_version_num SSLeay
+#define X509_up_ref(x) \
+	CRYPTO_add(&((x)->references), 1, CRYPTO_LOCK_X509)
+#define EVP_PKEY_up_ref(k) \
+	CRYPTO_add(&((k)->references), 1, CRYPTO_LOCK_EVP_PKEY)
+#define X509_STORE_CTX_get0_cert(ctx) ((ctx)->cert)
+#define X509_STORE_CTX_get0_untrusted(ctx) ((ctx)->untrusted)
+#define X509_STORE_CTX_set0_untrusted X509_STORE_CTX_set_chain
+#define X509_STORE_CTX_set0_trusted_stack X509_STORE_CTX_trusted_stack
+#define ASN1_STRING_get0_data ASN1_STRING_data
+#define X509_getm_notBefore X509_get_notBefore
+#define X509_getm_notAfter X509_get_notAfter
 #endif
 
 /* SSL_CIPHER_get_name() got constified in 0.9.7g */
@@ -297,24 +312,53 @@ extern void tls_param_init(void);
   * Protocol selection.
   */
 #define TLS_PROTOCOL_INVALID	(~0)	/* All protocol bits masked */
+
+#ifdef SSL_TXT_SSLV2
 #define TLS_PROTOCOL_SSLv2	(1<<0)	/* SSLv2 */
+#else
+#define SSL_TXT_SSLV2		"SSLv2"
+#define TLS_PROTOCOL_SSLv2	0	/* Unknown */
+#undef  SSL_OP_NO_SSLv2
+#define SSL_OP_NO_SSLv2		0L	/* Noop */
+#endif
+
+#ifdef SSL_TXT_SSLV3
 #define TLS_PROTOCOL_SSLv3	(1<<1)	/* SSLv3 */
+#else
+#define SSL_TXT_SSLV3		"SSLv3"
+#define TLS_PROTOCOL_SSLv3	0	/* Unknown */
+#undef  SSL_OP_NO_SSLv3
+#define SSL_OP_NO_SSLv3		0L	/* Noop */
+#endif
+
+#ifdef SSL_TXT_TLSV1
 #define TLS_PROTOCOL_TLSv1	(1<<2)	/* TLSv1 */
+#else
+#define SSL_TXT_TLSV1		"TLSv1"
+#define TLS_PROTOCOL_TLSv1	0	/* Unknown */
+#undef  SSL_OP_NO_TLSv1
+#define SSL_OP_NO_TLSv1		0L	/* Noop */
+#endif
+
 #ifdef SSL_TXT_TLSV1_1
 #define TLS_PROTOCOL_TLSv1_1	(1<<3)	/* TLSv1_1 */
 #else
+#define SSL_TXT_TLSV1_1		"TLSv1.1"
 #define TLS_PROTOCOL_TLSv1_1	0	/* Unknown */
 #undef  SSL_OP_NO_TLSv1_1
 #define SSL_OP_NO_TLSv1_1	0L	/* Noop */
 #endif
+
 #ifdef SSL_TXT_TLSV1_2
 #define TLS_PROTOCOL_TLSv1_2	(1<<4)	/* TLSv1_2 */
 #else
+#define SSL_TXT_TLSV1_2		"TLSv1.2"
 #define TLS_PROTOCOL_TLSv1_2	0	/* Unknown */
 #undef  SSL_OP_NO_TLSv1_2
 #define SSL_OP_NO_TLSv1_2	0L	/* Noop */
 #endif
-#define TLS_KNOWN_PROTOCOLS \
+
+#define TLS_KNOWN_PROTOCOLS	\
 	( TLS_PROTOCOL_SSLv2 | TLS_PROTOCOL_SSLv3 | TLS_PROTOCOL_TLSv1 \
 	   | TLS_PROTOCOL_TLSv1_1 | TLS_PROTOCOL_TLSv1_2 )
 #define TLS_SSL_OP_PROTOMASK(m) \

@@ -164,9 +164,25 @@
   */
 static const char server_session_id_context[] = "Postfix/TLS";
 
+#if OPENSSL_VERSION_NUMBER >= 0x1000000fL
+#define GET_SID(s, v, lptr)	((v) = SSL_SESSION_get_id((s), (lptr)))
+
+#else					/* Older OpenSSL releases */
+#define GET_SID(s, v, lptr) \
+    do { (v) = (s)->session_id; *(lptr) = (s)->session_id_length; } while (0)
+
+#endif					/* OPENSSL_VERSION_NUMBER */
+
+ /* OpenSSL 1.1.0 bitrot */
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+typedef const unsigned char *session_id_t;
+#else
+typedef unsigned char *session_id_t;
+#endif
+
 /* get_server_session_cb - callback to retrieve session from server cache */
 
-static SSL_SESSION *get_server_session_cb(SSL *ssl, unsigned char *session_id,
+static SSL_SESSION *get_server_session_cb(SSL *ssl, session_id_t session_id,
 					          int session_id_length,
 					          int *unused_copy)
 {
@@ -184,7 +200,7 @@ static SSL_SESSION *get_server_session_cb(SSL *ssl, unsigned char *session_id,
 	buf = vstring_alloc(2 * (len + strlen(service))); \
 	hex_encode(buf, (char *) (id), (len)); \
 	vstring_sprintf_append(buf, "&s=%s", (service)); \
-	vstring_sprintf_append(buf, "&l=%ld", (long) SSLeay()); \
+	vstring_sprintf_append(buf, "&l=%ld", (long) OpenSSL_version_num()); \
     } while (0)
 
 
@@ -221,14 +237,16 @@ static void uncache_session(SSL_CTX *ctx, TLS_SESS_STATE *TLScontext)
 {
     VSTRING *cache_id;
     SSL_SESSION *session = SSL_get_session(TLScontext->con);
+    const unsigned char *sid;
+    unsigned int sid_length;
 
     SSL_CTX_remove_session(ctx, session);
 
     if (TLScontext->cache_type == 0)
 	return;
 
-    GEN_CACHE_ID(cache_id, session->session_id, session->session_id_length,
-		 TLScontext->serverid);
+    GET_SID(session, sid, &sid_length);
+    GEN_CACHE_ID(cache_id, sid, sid_length, TLScontext->serverid);
 
     if (TLScontext->log_mask & TLS_LOG_CACHE)
 	msg_info("%s: remove session %s from %s cache", TLScontext->namaddr,
@@ -246,12 +264,14 @@ static int new_server_session_cb(SSL *ssl, SSL_SESSION *session)
     VSTRING *cache_id;
     TLS_SESS_STATE *TLScontext;
     VSTRING *session_data;
+    const unsigned char *sid;
+    unsigned int sid_length;
 
     if ((TLScontext = SSL_get_ex_data(ssl, TLScontext_index)) == 0)
 	msg_panic("%s: null TLScontext in new session callback", myname);
 
-    GEN_CACHE_ID(cache_id, session->session_id, session->session_id_length,
-		 TLScontext->serverid);
+    GET_SID(session, sid, &sid_length);
+    GEN_CACHE_ID(cache_id, sid, sid_length, TLScontext->serverid);
 
     if (TLScontext->log_mask & TLS_LOG_CACHE)
 	msg_info("%s: save session %s to %s cache", TLScontext->namaddr,
@@ -355,6 +375,7 @@ TLS_APPL_STATE *tls_server_init(const TLS_SERVER_INIT_PROPS *props)
      */
     tls_check_version();
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
     /*
      * Initialize the OpenSSL library by the book! To start with, we must
      * initialize the algorithms. We want cleartext error messages instead of
@@ -362,6 +383,7 @@ TLS_APPL_STATE *tls_server_init(const TLS_SERVER_INIT_PROPS *props)
      */
     SSL_load_error_strings();
     OpenSSL_add_ssl_algorithms();
+#endif
 
     /*
      * First validate the protocols. If these are invalid, we can't continue.
@@ -423,6 +445,11 @@ TLS_APPL_STATE *tls_server_init(const TLS_SERVER_INIT_PROPS *props)
 	tls_print_errors();
 	return (0);
     }
+
+#ifdef SSL_SECOP_PEER
+    /* Backwards compatible security as a base for opportunistic TLS. */
+    SSL_CTX_set_security_level(server_ctx, 0);
+#endif
 
     /*
      * See the verify callback in tls_verify.c
@@ -539,11 +566,16 @@ TLS_APPL_STATE *tls_server_init(const TLS_SERVER_INIT_PROPS *props)
     }
 
     /*
+     * 2015-12-05: Ephemeral RSA removed from OpenSSL 1.1.0-dev
+     */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+    /*
      * According to OpenSSL documentation, a temporary RSA key is needed when
      * export ciphers are in use, because the certified key cannot be
      * directly used.
      */
     SSL_CTX_set_tmp_rsa_callback(server_ctx, tls_tmp_rsa_cb);
+#endif
 
     /*
      * Diffie-Hellman key generation parameters can either be loaded from
@@ -717,6 +749,12 @@ TLS_SESS_STATE *tls_server_start(const TLS_SERVER_START_PROPS *props)
 	return (0);
     }
 
+#ifdef SSL_SECOP_PEER
+    /* When authenticating the peer, use 80-bit plus OpenSSL security level */
+    if (props->requirecert)
+	SSL_set_security_level(TLScontext->con, 1);
+#endif
+
     /*
      * Before really starting anything, try to seed the PRNG a little bit
      * more.
@@ -827,10 +865,10 @@ TLS_SESS_STATE *tls_server_post_accept(TLS_SESS_STATE *TLScontext)
 	if (TLScontext->log_mask & TLS_LOG_VERBOSE) {
 	    X509_NAME_oneline(X509_get_subject_name(peer),
 			      buf, sizeof(buf));
-	    msg_info("subject=%s", buf);
+	    msg_info("subject=%s", printable(buf, '?'));
 	    X509_NAME_oneline(X509_get_issuer_name(peer),
 			      buf, sizeof(buf));
-	    msg_info("issuer=%s", buf);
+	    msg_info("issuer=%s", printable(buf, '?'));
 	}
 	TLScontext->peer_CN = tls_peer_CN(peer, TLScontext);
 	TLScontext->issuer_CN = tls_issuer_CN(peer, TLScontext);
@@ -846,6 +884,22 @@ TLS_SESS_STATE *tls_server_post_accept(TLS_SESS_STATE *TLScontext)
 		     TLScontext->peer_pkey_fprint);
 	}
 	X509_free(peer);
+
+	/*
+	 * Give them a clue. Problems with trust chain verification are logged
+	 * when the session is first negotiated, before the session is stored
+	 * into the cache. We don't want mystery failures, so log the fact the
+	 * real problem is to be found in the past.
+	 */
+	if (!TLS_CERT_IS_TRUSTED(TLScontext)
+	    && (TLScontext->log_mask & TLS_LOG_UNTRUSTED)) {
+	    if (TLScontext->session_reused == 0)
+		tls_log_verify_error(TLScontext);
+	    else
+		msg_info("%s: re-using session with untrusted certificate, "
+			 "look for details earlier in the log",
+			 TLScontext->namaddr);
+	}
     } else {
 	TLScontext->peer_CN = mystrdup("");
 	TLScontext->issuer_CN = mystrdup("");
