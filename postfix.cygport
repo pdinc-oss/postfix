@@ -1,7 +1,7 @@
 # cygport script for postfix
 NAME=postfix
 VERSION=2.11.9
-RELEASE=4
+RELEASE=5
 
 SUMMARY="Mail Transfer Agent"
 
@@ -20,14 +20,15 @@ REQUIRES+=" sed"
 REQUIRES+=" util-linux"
 
 BUILD_REQUIRES=""
+#BUILD_REQUIRES+=" gcc-core=9.3.0-2" #see https://cygwin.com/pipermail/cygwin-apps/2021-September/041561.html
 BUILD_REQUIRES+=" libdb-devel"
 BUILD_REQUIRES+=" libmysqlclient-devel"
 BUILD_REQUIRES+=" libpcre-devel"
 BUILD_REQUIRES+=" libpq-devel"
 BUILD_REQUIRES+=" libpq5"
 BUILD_REQUIRES+=" libsqlite3-devel"
+BUILD_REQUIRES+=" libssl-devel"
 BUILD_REQUIRES+=" openldap-devel"
-BUILD_REQUIRES+=" openssl-devel"
 
 HOMEPAGE="http://www.postfix.org/"
 SRC_URI="
