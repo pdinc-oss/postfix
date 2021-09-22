@@ -1,6 +1,7 @@
---- origsrc/postfix-2.11.9/auxiliary/qshape/qshape.pl	2011-03-23 19:00:45.000000000 +0100
-+++ src/postfix-2.11.9/auxiliary/qshape/qshape.pl	2014-11-12 19:02:37.853159400 +0100
-@@ -186,7 +186,7 @@ $minsub = $opts{"m"} if (exists $opts{"m
+diff -ur src/postfix-3.0.15.orig/auxiliary/qshape/qshape.pl src/postfix-3.0.15/auxiliary/qshape/qshape.pl
+--- src/postfix-3.0.15.orig/auxiliary/qshape/qshape.pl	2011-03-23 14:00:45.000000000 -0400
++++ src/postfix-3.0.15/auxiliary/qshape/qshape.pl	2021-09-22 16:47:21.353939700 -0400
+@@ -186,7 +186,7 @@
  if ( -t STDOUT ) {
      $batch_msg_count = 1000 unless defined($batch_msg_count = $opts{"N"});
      $batch_top_domains = 20 unless defined ($batch_top_domains = $opts{"n"});
@@ -9,9 +10,10 @@
  } else {
      $batch_msg_count = 0;
      $batch_top_domains = 0;
---- origsrc/postfix-2.11.9/makedefs	2015-10-10 16:35:48.000000000 +0200
-+++ src/postfix-2.11.9/makedefs	2017-03-25 17:26:55.277043000 +0100
-@@ -517,6 +517,10 @@ ReliantUNIX-?.5.43) SYSTYPE=ReliantUnix5
+diff -ur src/postfix-3.0.15.orig/makedefs src/postfix-3.0.15/makedefs
+--- src/postfix-3.0.15.orig/makedefs	2016-08-19 20:08:20.000000000 -0400
++++ src/postfix-3.0.15/makedefs	2021-09-22 16:47:21.358566500 -0400
+@@ -675,6 +675,10 @@
  		SYSLIBS="-lresolv -lsocket -lnsl -lc -lrpcsvc -L/usr/ucblib -lucb"
  		;;
  
@@ -22,9 +24,10 @@
  	 ".")	if [ -d /NextApps ]; then
  		    SYSTYPE=`hostinfo | sed -n \
  			's/^.*NeXT Mach 3.*$/NEXTSTEP3/;/NEXTSTEP3/{p;q;}'`
---- origsrc/postfix-2.11.9/src/global/mail_params.c	2014-01-08 02:19:18.000000000 +0100
-+++ src/postfix-2.11.9/src/global/mail_params.c	2014-11-13 20:23:20.246472400 +0100
-@@ -452,6 +452,7 @@ static void check_overlap(void)
+diff -ur src/postfix-3.0.15.orig/src/global/mail_params.c src/postfix-3.0.15/src/global/mail_params.c
+--- src/postfix-3.0.15.orig/src/global/mail_params.c	2015-01-27 14:27:44.000000000 -0500
++++ src/postfix-3.0.15/src/global/mail_params.c	2021-09-22 16:47:21.364522400 -0400
+@@ -485,6 +485,7 @@
  		  VAR_DEFAULT_PRIVS, VAR_MAIL_OWNER,
  		  var_default_privs, var_mail_owner,
  		  (long) var_owner_uid);
@@ -32,7 +35,7 @@
      if (var_default_gid == var_owner_gid)
  	msg_fatal("file %s/%s: parameters %s and %s: users %s and %s have the same group ID: %ld",
  		  var_config_dir, MAIN_CONF_FILE,
-@@ -470,6 +471,7 @@ static void check_overlap(void)
+@@ -503,6 +504,7 @@
  		  VAR_MAIL_OWNER, VAR_SGID_GROUP,
  		  var_mail_owner, var_sgid_group,
  		  (long) var_sgid_gid);
@@ -40,9 +43,10 @@
  }
  
  #ifdef MYORIGIN_FROM_FILE
---- origsrc/postfix-2.11.9/src/master/master.c	2012-03-09 15:57:39.000000000 +0100
-+++ src/postfix-2.11.9/src/master/master.c	2014-10-08 22:53:22.042368600 +0200
-@@ -392,7 +392,12 @@ int     main(int argc, char **argv)
+diff -ur src/postfix-3.0.15.orig/src/master/master.c src/postfix-3.0.15/src/master/master.c
+--- src/postfix-3.0.15.orig/src/master/master.c	2014-12-06 20:35:33.000000000 -0500
++++ src/postfix-3.0.15/src/master/master.c	2021-09-22 16:47:21.372456300 -0400
+@@ -393,7 +393,12 @@
       * all MTA processes cleanly. Give up if we can't separate from our
       * parent process. We're not supposed to blow away the parent.
       */
@@ -56,9 +60,10 @@
  	msg_fatal("unable to set session and process group ID: %m");
  
      /*
---- origsrc/postfix-2.11.9/src/pipe/pipe.c	2013-12-13 23:40:43.000000000 +0100
-+++ src/postfix-2.11.9/src/pipe/pipe.c	2014-11-13 20:26:21.830791300 +0100
-@@ -971,12 +971,14 @@ static void get_service_attr(PIPE_ATTR *
+diff -ur src/postfix-3.0.15.orig/src/pipe/pipe.c src/postfix-3.0.15/src/pipe/pipe.c
+--- src/postfix-3.0.15.orig/src/pipe/pipe.c	2015-01-29 17:15:30.000000000 -0500
++++ src/postfix-3.0.15/src/pipe/pipe.c	2021-09-22 16:47:21.378409100 -0400
+@@ -995,12 +995,14 @@
  		  var_mail_owner);
      if (attr->gid == 0)
  	msg_fatal("user= command-line attribute specifies privileged group id 0");
@@ -73,9 +78,10 @@
  
      /*
       * Give the poor tester a clue of what is going on.
---- origsrc/postfix-2.11.9/src/postqueue/postqueue.c	2012-07-17 21:40:37.000000000 +0200
-+++ src/postfix-2.11.9/src/postqueue/postqueue.c	2014-11-22 19:08:40.555481000 +0100
-@@ -311,7 +311,11 @@ static void show_queue(void)
+diff -ur src/postfix-3.0.15.orig/src/postqueue/postqueue.c src/postfix-3.0.15/src/postqueue/postqueue.c
+--- src/postfix-3.0.15.orig/src/postqueue/postqueue.c	2015-01-13 14:56:24.000000000 -0500
++++ src/postfix-3.0.15/src/postqueue/postqueue.c	2021-09-22 16:47:21.387005300 -0400
+@@ -313,7 +313,11 @@
  
  	msg_warn("Mail system is down -- accessing queue directly");
  	argv = argv_alloc(6);
@@ -87,9 +93,10 @@
  	for (n = 0; n < msg_verbose; n++)
  	    argv_add(argv, "-v", (char *) 0);
  	argv_terminate(argv);
---- origsrc/postfix-2.11.9/src/postsuper/postsuper.c	2016-11-05 15:49:49.000000000 +0100
-+++ src/postfix-2.11.9/src/postsuper/postsuper.c	2017-03-25 16:07:57.408174500 +0100
-@@ -429,6 +429,9 @@ static int postrename(const char *old, c
+diff -ur src/postfix-3.0.15.orig/src/postsuper/postsuper.c src/postfix-3.0.15/src/postsuper/postsuper.c
+--- src/postfix-3.0.15.orig/src/postsuper/postsuper.c	2016-11-05 10:49:22.000000000 -0400
++++ src/postfix-3.0.15/src/postsuper/postsuper.c	2021-09-22 16:47:21.396264600 -0400
+@@ -429,6 +429,9 @@
  
      if ((ret = sane_rename(old, new)) < 0) {
  	if (errno != ENOENT
@@ -99,7 +106,7 @@
  	    || mail_queue_mkdirs(new) < 0
  	    || (ret = sane_rename(old, new)) < 0)
  	    if (errno != ENOENT)
-@@ -1239,7 +1242,11 @@ int     main(int argc, char **argv)
+@@ -1239,7 +1242,11 @@
       * a non-root user limits the damage to the already compromised mail
       * owner.
       */
@@ -111,9 +118,10 @@
  
      /*
       * Be sure to log a warning if we do not finish structural repair. Maybe
---- origsrc/postfix-2.11.9/src/spawn/spawn.c	2009-04-17 22:03:59.000000000 +0200
-+++ src/postfix-2.11.9/src/spawn/spawn.c	2014-11-13 20:24:40.976614100 +0100
-@@ -254,8 +254,10 @@ static void get_service_attr(SPAWN_ATTR
+diff -ur src/postfix-3.0.15.orig/src/spawn/spawn.c src/postfix-3.0.15/src/spawn/spawn.c
+--- src/postfix-3.0.15.orig/src/spawn/spawn.c	2014-12-25 11:47:18.000000000 -0500
++++ src/postfix-3.0.15/src/spawn/spawn.c	2021-09-22 16:47:21.402216000 -0400
+@@ -255,8 +255,10 @@
  	msg_fatal("request to deliver as mail system owner");
      if (attr->gid == 0)
  	msg_fatal("request to use privileged group id %ld", (long) attr->gid);
@@ -124,9 +132,10 @@
      if (attr->uid == (uid_t) (-1))
  	msg_fatal("user must not have user ID -1");
      if (attr->gid == (gid_t) (-1))
---- origsrc/postfix-2.11.9/src/util/edit_file.c	2012-01-25 01:41:08.000000000 +0100
-+++ src/postfix-2.11.9/src/util/edit_file.c	2014-09-26 22:11:37.384298200 +0200
-@@ -284,7 +284,10 @@ EDIT_FILE *edit_file_open(const char *pa
+diff -ur src/postfix-3.0.15.orig/src/util/edit_file.c src/postfix-3.0.15/src/util/edit_file.c
+--- src/postfix-3.0.15.orig/src/util/edit_file.c	2014-12-06 20:35:33.000000000 -0500
++++ src/postfix-3.0.15/src/util/edit_file.c	2021-09-22 16:47:21.408829700 -0400
+@@ -284,7 +284,10 @@
  	    || after_lock.st_size > 0
  #endif
  	    || after_lock.st_nlink > 1
@@ -138,9 +147,10 @@
  	    if (unlink(ep->tmp_path) < 0 && errno != ENOENT)
  		msg_fatal("unlink %s: %m", ep->tmp_path);
  	    continue;
---- origsrc/postfix-2.11.9/src/util/file_limit.c	2003-10-22 20:48:36.000000000 +0200
-+++ src/postfix-2.11.9/src/util/file_limit.c	2014-10-09 19:50:26.651136300 +0200
-@@ -83,11 +83,17 @@ void    set_file_limit(off_t limit)
+diff -ur src/postfix-3.0.15.orig/src/util/file_limit.c src/postfix-3.0.15/src/util/file_limit.c
+--- src/postfix-3.0.15.orig/src/util/file_limit.c	2003-10-22 14:48:36.000000000 -0400
++++ src/postfix-3.0.15/src/util/file_limit.c	2021-09-22 16:47:21.412797200 -0400
+@@ -83,11 +83,17 @@
      if (ulimit(UL_SETFSIZE, limit / ULIMIT_BLOCK_SIZE) < 0)
  	msg_fatal("ulimit: %m");
  #else
@@ -158,8 +168,9 @@
  #ifdef SIGXFSZ
      if (signal(SIGXFSZ, SIG_IGN) == SIG_ERR)
  	msg_fatal("signal(SIGXFSZ,SIG_IGN): %m");
---- origsrc/postfix-2.11.9/src/util/sys_compat.c	2005-01-19 02:22:20.000000000 +0100
-+++ src/postfix-2.11.9/src/util/sys_compat.c	2017-03-25 17:39:31.500824600 +0100
+diff -ur src/postfix-3.0.15.orig/src/util/sys_compat.c src/postfix-3.0.15/src/util/sys_compat.c
+--- src/postfix-3.0.15.orig/src/util/sys_compat.c	2014-12-06 20:35:32.000000000 -0500
++++ src/postfix-3.0.15/src/util/sys_compat.c	2021-09-22 16:47:21.419411200 -0400
 @@ -62,6 +62,7 @@
  
  /* System library. */
@@ -168,7 +179,7 @@
  #include "sys_defs.h"
  
   /*
-@@ -358,3 +359,438 @@ int     inet_pton(int af, const char *sr
+@@ -358,3 +359,438 @@
  }
  
  #endif
@@ -607,9 +618,10 @@
 +#endif /* ALLOW_POSTSUPER_RUN_AS_ROOT */
 +
 +#endif /* CYGWIN2x */
---- origsrc/postfix-2.11.9/src/util/sys_defs.h	2015-07-19 15:21:48.000000000 +0200
-+++ src/postfix-2.11.9/src/util/sys_defs.h	2017-03-25 17:38:57.463957100 +0100
-@@ -1266,6 +1266,121 @@ extern int h_errno;
+diff -ur src/postfix-3.0.15.orig/src/util/sys_defs.h src/postfix-3.0.15/src/util/sys_defs.h
+--- src/postfix-3.0.15.orig/src/util/sys_defs.h	2016-05-15 12:45:11.000000000 -0400
++++ src/postfix-3.0.15/src/util/sys_defs.h	2021-09-22 16:47:21.424700500 -0400
+@@ -1268,6 +1268,121 @@
  #endif
  
   /*
@@ -731,8 +743,9 @@
    * We're not going to try to guess like configure does.
    */
  #ifndef SUPPORTED
---- origsrc/postfix-2.11.9/src/util/unix_listen.c	2005-06-03 01:44:05.000000000 +0200
-+++ src/postfix-2.11.9/src/util/unix_listen.c	2014-10-22 21:29:44.965202100 +0200
+diff -ur src/postfix-3.0.15.orig/src/util/unix_listen.c src/postfix-3.0.15/src/util/unix_listen.c
+--- src/postfix-3.0.15.orig/src/util/unix_listen.c	2014-12-11 14:41:50.000000000 -0500
++++ src/postfix-3.0.15/src/util/unix_listen.c	2021-09-22 16:47:21.431975400 -0400
 @@ -61,6 +61,27 @@
  #include "listen.h"
  #include "sane_accept.h"
@@ -761,17 +774,17 @@
  /* unix_listen - create UNIX-domain listener */
  
  int     unix_listen(const char *addr, int backlog, int block_mode)
-@@ -69,6 +90,7 @@ int     unix_listen(const char *addr, in
+@@ -69,6 +90,7 @@
      struct sockaddr_un sun;
-     int     len = strlen(addr);
+     ssize_t len = strlen(addr);
      int     sock;
 +    int     mode;
  
      /*
       * Translate address information to internal form.
-@@ -92,11 +114,17 @@ int     unix_listen(const char *addr, in
+@@ -92,11 +114,17 @@
  	msg_fatal("remove %s: %m", addr);
-     if (bind(sock, (struct sockaddr *) & sun, sizeof(sun)) < 0)
+     if (bind(sock, (struct sockaddr *) &sun, sizeof(sun)) < 0)
  	msg_fatal("bind: %s: %m", addr);
 +
 +#ifdef HAVE_BYPASS_TRAVERSE_CHECKING

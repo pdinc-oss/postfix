@@ -1,6 +1,6 @@
 # cygport script for postfix
 NAME=postfix
-VERSION=2.11.11
+VERSION=3.0.15
 RELEASE=1
 
 SUMMARY="Mail Transfer Agent"
@@ -37,7 +37,6 @@ SRC_URI="
 "
 
 PATCH_URI="
-  openssl-1.1.0.patch
 "
 
 PKG_NAMES="postfix postfix-doc postfix-tools"
@@ -123,14 +122,14 @@ src_compile() {
 	mkdir -p cygwin || exit 1
 
 	# Use port numbers for services possibly missing in /etc/services
-	echo "sed ... libexec/master.cf > cygwin/master.cf"
+	echo "sed ... conf/master.cf > cygwin/master.cf"
 	sed	-e '/#smtp .*postscreen$/i\# Cygwin: postscreen does not work because it requires fd passing' \
 		-e 's,^#submission ,#587       ,' \
 		-e 's,^#smtps ,#465   ,' \
-		libexec/master.cf > cygwin/master.cf || exit 1
+		conf/master.cf > cygwin/master.cf || exit 1
 
 	# Replace root by admin uid, fix perms, remove missing or optional files
-	echo "sed ... libexec/postfix-files > cygwin/postfix-files"
+	echo "sed ... conf/postfix-files > cygwin/postfix-files"
 	sed 	-e '1i# Modified for Cygwin.' \
 		-e 's,^\(\$config_directory/.*LICENSE:.*\)$,#\1,' \
 		-e 's,^\(\$config_directory/.*\.default:.*\)$,#\1,' \
@@ -143,15 +142,15 @@ src_compile() {
 		-e 's,^\(\$mailq_path:.*\)$,#\1,' \
 		-e 's,:\$setgid_group:2755:,:$setgid_group:755:,' \
 		-e 's,:root:,:SYSTEM:,' \
-		libexec/postfix-files > cygwin/postfix-files || exit 1
+		conf/postfix-files > cygwin/postfix-files || exit 1
 
-	echo "sed ... libexec/postfix-script > cygwin/postfix-script"
+	echo "sed ... conf/postfix-script > cygwin/postfix-script"
 	sed 	-e '2i# Modified for Cygwin.' \
 		-e 's,grep " root ",grep -i " SYSTEM ",' \
 		-e 's, -user root , -user SYSTEM ,' \
 		-e 's, not owned by root:, not owned by SYSTEM:,' \
 		-e 's, -perm -02111 , -perm -0111 ', \
-		libexec/postfix-script > cygwin/postfix-script || exit 1
+		conf/postfix-script > cygwin/postfix-script || exit 1
 
 	# Add postconf path
 	echo "sed ... auxiliary/qshape/qshape.pl > cygwin/qshape"
