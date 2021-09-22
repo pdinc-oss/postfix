@@ -1,6 +1,6 @@
-diff -ur src/postfix-3.0.15.orig/auxiliary/qshape/qshape.pl src/postfix-3.0.15/auxiliary/qshape/qshape.pl
---- src/postfix-3.0.15.orig/auxiliary/qshape/qshape.pl	2011-03-23 14:00:45.000000000 -0400
-+++ src/postfix-3.0.15/auxiliary/qshape/qshape.pl	2021-09-22 16:47:21.353939700 -0400
+diff -ur src/postfix-3.1.15.orig/auxiliary/qshape/qshape.pl src/postfix-3.1.15/auxiliary/qshape/qshape.pl
+--- src/postfix-3.1.15.orig/auxiliary/qshape/qshape.pl	2011-03-23 14:00:45.000000000 -0400
++++ src/postfix-3.1.15/auxiliary/qshape/qshape.pl	2021-09-22 18:28:19.964146000 -0400
 @@ -186,7 +186,7 @@
  if ( -t STDOUT ) {
      $batch_msg_count = 1000 unless defined($batch_msg_count = $opts{"N"});
@@ -10,10 +10,10 @@ diff -ur src/postfix-3.0.15.orig/auxiliary/qshape/qshape.pl src/postfix-3.0.15/a
  } else {
      $batch_msg_count = 0;
      $batch_top_domains = 0;
-diff -ur src/postfix-3.0.15.orig/makedefs src/postfix-3.0.15/makedefs
---- src/postfix-3.0.15.orig/makedefs	2016-08-19 20:08:20.000000000 -0400
-+++ src/postfix-3.0.15/makedefs	2021-09-22 16:47:21.358566500 -0400
-@@ -675,6 +675,10 @@
+diff -ur src/postfix-3.1.15.orig/makedefs src/postfix-3.1.15/makedefs
+--- src/postfix-3.1.15.orig/makedefs	2016-08-19 20:08:42.000000000 -0400
++++ src/postfix-3.1.15/makedefs	2021-09-22 18:28:19.967424000 -0400
+@@ -683,6 +683,10 @@
  		SYSLIBS="-lresolv -lsocket -lnsl -lc -lrpcsvc -L/usr/ucblib -lucb"
  		;;
  
@@ -24,10 +24,10 @@ diff -ur src/postfix-3.0.15.orig/makedefs src/postfix-3.0.15/makedefs
  	 ".")	if [ -d /NextApps ]; then
  		    SYSTYPE=`hostinfo | sed -n \
  			's/^.*NeXT Mach 3.*$/NEXTSTEP3/;/NEXTSTEP3/{p;q;}'`
-diff -ur src/postfix-3.0.15.orig/src/global/mail_params.c src/postfix-3.0.15/src/global/mail_params.c
---- src/postfix-3.0.15.orig/src/global/mail_params.c	2015-01-27 14:27:44.000000000 -0500
-+++ src/postfix-3.0.15/src/global/mail_params.c	2021-09-22 16:47:21.364522400 -0400
-@@ -485,6 +485,7 @@
+diff -ur src/postfix-3.1.15.orig/src/global/mail_params.c src/postfix-3.1.15/src/global/mail_params.c
+--- src/postfix-3.1.15.orig/src/global/mail_params.c	2015-12-27 19:19:52.000000000 -0500
++++ src/postfix-3.1.15/src/global/mail_params.c	2021-09-22 18:28:19.974035700 -0400
+@@ -501,6 +501,7 @@
  		  VAR_DEFAULT_PRIVS, VAR_MAIL_OWNER,
  		  var_default_privs, var_mail_owner,
  		  (long) var_owner_uid);
@@ -35,7 +35,7 @@ diff -ur src/postfix-3.0.15.orig/src/global/mail_params.c src/postfix-3.0.15/src
      if (var_default_gid == var_owner_gid)
  	msg_fatal("file %s/%s: parameters %s and %s: users %s and %s have the same group ID: %ld",
  		  var_config_dir, MAIN_CONF_FILE,
-@@ -503,6 +504,7 @@
+@@ -519,6 +520,7 @@
  		  VAR_MAIL_OWNER, VAR_SGID_GROUP,
  		  var_mail_owner, var_sgid_group,
  		  (long) var_sgid_gid);
@@ -43,10 +43,10 @@ diff -ur src/postfix-3.0.15.orig/src/global/mail_params.c src/postfix-3.0.15/src
  }
  
  #ifdef MYORIGIN_FROM_FILE
-diff -ur src/postfix-3.0.15.orig/src/master/master.c src/postfix-3.0.15/src/master/master.c
---- src/postfix-3.0.15.orig/src/master/master.c	2014-12-06 20:35:33.000000000 -0500
-+++ src/postfix-3.0.15/src/master/master.c	2021-09-22 16:47:21.372456300 -0400
-@@ -393,7 +393,12 @@
+diff -ur src/postfix-3.1.15.orig/src/master/master.c src/postfix-3.1.15/src/master/master.c
+--- src/postfix-3.1.15.orig/src/master/master.c	2016-02-13 20:29:42.000000000 -0500
++++ src/postfix-3.1.15/src/master/master.c	2021-09-22 18:28:19.979326000 -0400
+@@ -398,7 +398,12 @@
       * all MTA processes cleanly. Give up if we can't separate from our
       * parent process. We're not supposed to blow away the parent.
       */
@@ -60,10 +60,10 @@ diff -ur src/postfix-3.0.15.orig/src/master/master.c src/postfix-3.0.15/src/mast
  	msg_fatal("unable to set session and process group ID: %m");
  
      /*
-diff -ur src/postfix-3.0.15.orig/src/pipe/pipe.c src/postfix-3.0.15/src/pipe/pipe.c
---- src/postfix-3.0.15.orig/src/pipe/pipe.c	2015-01-29 17:15:30.000000000 -0500
-+++ src/postfix-3.0.15/src/pipe/pipe.c	2021-09-22 16:47:21.378409100 -0400
-@@ -995,12 +995,14 @@
+diff -ur src/postfix-3.1.15.orig/src/pipe/pipe.c src/postfix-3.1.15/src/pipe/pipe.c
+--- src/postfix-3.1.15.orig/src/pipe/pipe.c	2016-02-13 20:30:11.000000000 -0500
++++ src/postfix-3.1.15/src/pipe/pipe.c	2021-09-22 18:28:19.983955800 -0400
+@@ -1000,12 +1000,14 @@
  		  var_mail_owner);
      if (attr->gid == 0)
  	msg_fatal("user= command-line attribute specifies privileged group id 0");
@@ -78,25 +78,25 @@ diff -ur src/postfix-3.0.15.orig/src/pipe/pipe.c src/postfix-3.0.15/src/pipe/pip
  
      /*
       * Give the poor tester a clue of what is going on.
-diff -ur src/postfix-3.0.15.orig/src/postqueue/postqueue.c src/postfix-3.0.15/src/postqueue/postqueue.c
---- src/postfix-3.0.15.orig/src/postqueue/postqueue.c	2015-01-13 14:56:24.000000000 -0500
-+++ src/postfix-3.0.15/src/postqueue/postqueue.c	2021-09-22 16:47:21.387005300 -0400
-@@ -313,7 +313,11 @@
- 
- 	msg_warn("Mail system is down -- accessing queue directly");
+diff -ur src/postfix-3.1.15.orig/src/postqueue/postqueue.c src/postfix-3.1.15/src/postqueue/postqueue.c
+--- src/postfix-3.1.15.orig/src/postqueue/postqueue.c	2016-02-14 12:21:01.000000000 -0500
++++ src/postfix-3.1.15/src/postqueue/postqueue.c	2021-09-22 18:28:19.989246300 -0400
+@@ -384,7 +384,11 @@
+ 	showq_path = concatenate(var_daemon_dir, "/", var_showq_service,
+ 				 (char *) 0);
  	argv = argv_alloc(6);
 +#ifndef ALLOW_POSTQUEUE_RUN_SHOWQ_AS_ROOT
- 	argv_add(argv, var_showq_service, "-u", "-S", (char *) 0);
+ 	argv_add(argv, showq_path, "-u", "-S", (char *) 0);
 +#else
-+	argv_add(argv, var_showq_service,       "-S", (char *) 0);
++	argv_add(argv, showq_path,       "-S", (char *) 0);
 +#endif
  	for (n = 0; n < msg_verbose; n++)
  	    argv_add(argv, "-v", (char *) 0);
  	argv_terminate(argv);
-diff -ur src/postfix-3.0.15.orig/src/postsuper/postsuper.c src/postfix-3.0.15/src/postsuper/postsuper.c
---- src/postfix-3.0.15.orig/src/postsuper/postsuper.c	2016-11-05 10:49:22.000000000 -0400
-+++ src/postfix-3.0.15/src/postsuper/postsuper.c	2021-09-22 16:47:21.396264600 -0400
-@@ -429,6 +429,9 @@
+diff -ur src/postfix-3.1.15.orig/src/postsuper/postsuper.c src/postfix-3.1.15/src/postsuper/postsuper.c
+--- src/postfix-3.1.15.orig/src/postsuper/postsuper.c	2016-11-05 10:48:09.000000000 -0400
++++ src/postfix-3.1.15/src/postsuper/postsuper.c	2021-09-22 18:28:19.993877000 -0400
+@@ -434,6 +434,9 @@
  
      if ((ret = sane_rename(old, new)) < 0) {
  	if (errno != ENOENT
@@ -106,7 +106,7 @@ diff -ur src/postfix-3.0.15.orig/src/postsuper/postsuper.c src/postfix-3.0.15/sr
  	    || mail_queue_mkdirs(new) < 0
  	    || (ret = sane_rename(old, new)) < 0)
  	    if (errno != ENOENT)
-@@ -1239,7 +1242,11 @@
+@@ -1244,7 +1247,11 @@
       * a non-root user limits the damage to the already compromised mail
       * owner.
       */
@@ -118,10 +118,10 @@ diff -ur src/postfix-3.0.15.orig/src/postsuper/postsuper.c src/postfix-3.0.15/sr
  
      /*
       * Be sure to log a warning if we do not finish structural repair. Maybe
-diff -ur src/postfix-3.0.15.orig/src/spawn/spawn.c src/postfix-3.0.15/src/spawn/spawn.c
---- src/postfix-3.0.15.orig/src/spawn/spawn.c	2014-12-25 11:47:18.000000000 -0500
-+++ src/postfix-3.0.15/src/spawn/spawn.c	2021-09-22 16:47:21.402216000 -0400
-@@ -255,8 +255,10 @@
+diff -ur src/postfix-3.1.15.orig/src/spawn/spawn.c src/postfix-3.1.15/src/spawn/spawn.c
+--- src/postfix-3.1.15.orig/src/spawn/spawn.c	2016-02-13 20:31:21.000000000 -0500
++++ src/postfix-3.1.15/src/spawn/spawn.c	2021-09-22 18:28:19.998503200 -0400
+@@ -260,8 +260,10 @@
  	msg_fatal("request to deliver as mail system owner");
      if (attr->gid == 0)
  	msg_fatal("request to use privileged group id %ld", (long) attr->gid);
@@ -132,9 +132,9 @@ diff -ur src/postfix-3.0.15.orig/src/spawn/spawn.c src/postfix-3.0.15/src/spawn/
      if (attr->uid == (uid_t) (-1))
  	msg_fatal("user must not have user ID -1");
      if (attr->gid == (gid_t) (-1))
-diff -ur src/postfix-3.0.15.orig/src/util/edit_file.c src/postfix-3.0.15/src/util/edit_file.c
---- src/postfix-3.0.15.orig/src/util/edit_file.c	2014-12-06 20:35:33.000000000 -0500
-+++ src/postfix-3.0.15/src/util/edit_file.c	2021-09-22 16:47:21.408829700 -0400
+diff -ur src/postfix-3.1.15.orig/src/util/edit_file.c src/postfix-3.1.15/src/util/edit_file.c
+--- src/postfix-3.1.15.orig/src/util/edit_file.c	2014-12-06 20:35:33.000000000 -0500
++++ src/postfix-3.1.15/src/util/edit_file.c	2021-09-22 18:28:20.003800500 -0400
 @@ -284,7 +284,10 @@
  	    || after_lock.st_size > 0
  #endif
@@ -147,9 +147,9 @@ diff -ur src/postfix-3.0.15.orig/src/util/edit_file.c src/postfix-3.0.15/src/uti
  	    if (unlink(ep->tmp_path) < 0 && errno != ENOENT)
  		msg_fatal("unlink %s: %m", ep->tmp_path);
  	    continue;
-diff -ur src/postfix-3.0.15.orig/src/util/file_limit.c src/postfix-3.0.15/src/util/file_limit.c
---- src/postfix-3.0.15.orig/src/util/file_limit.c	2003-10-22 14:48:36.000000000 -0400
-+++ src/postfix-3.0.15/src/util/file_limit.c	2021-09-22 16:47:21.412797200 -0400
+diff -ur src/postfix-3.1.15.orig/src/util/file_limit.c src/postfix-3.1.15/src/util/file_limit.c
+--- src/postfix-3.1.15.orig/src/util/file_limit.c	2003-10-22 14:48:36.000000000 -0400
++++ src/postfix-3.1.15/src/util/file_limit.c	2021-09-22 18:28:20.007763200 -0400
 @@ -83,11 +83,17 @@
      if (ulimit(UL_SETFSIZE, limit / ULIMIT_BLOCK_SIZE) < 0)
  	msg_fatal("ulimit: %m");
@@ -168,9 +168,9 @@ diff -ur src/postfix-3.0.15.orig/src/util/file_limit.c src/postfix-3.0.15/src/ut
  #ifdef SIGXFSZ
      if (signal(SIGXFSZ, SIG_IGN) == SIG_ERR)
  	msg_fatal("signal(SIGXFSZ,SIG_IGN): %m");
-diff -ur src/postfix-3.0.15.orig/src/util/sys_compat.c src/postfix-3.0.15/src/util/sys_compat.c
---- src/postfix-3.0.15.orig/src/util/sys_compat.c	2014-12-06 20:35:32.000000000 -0500
-+++ src/postfix-3.0.15/src/util/sys_compat.c	2021-09-22 16:47:21.419411200 -0400
+diff -ur src/postfix-3.1.15.orig/src/util/sys_compat.c src/postfix-3.1.15/src/util/sys_compat.c
+--- src/postfix-3.1.15.orig/src/util/sys_compat.c	2014-12-06 20:35:32.000000000 -0500
++++ src/postfix-3.1.15/src/util/sys_compat.c	2021-09-22 18:28:20.013746700 -0400
 @@ -62,6 +62,7 @@
  
  /* System library. */
@@ -618,10 +618,10 @@ diff -ur src/postfix-3.0.15.orig/src/util/sys_compat.c src/postfix-3.0.15/src/ut
 +#endif /* ALLOW_POSTSUPER_RUN_AS_ROOT */
 +
 +#endif /* CYGWIN2x */
-diff -ur src/postfix-3.0.15.orig/src/util/sys_defs.h src/postfix-3.0.15/src/util/sys_defs.h
---- src/postfix-3.0.15.orig/src/util/sys_defs.h	2016-05-15 12:45:11.000000000 -0400
-+++ src/postfix-3.0.15/src/util/sys_defs.h	2021-09-22 16:47:21.424700500 -0400
-@@ -1268,6 +1268,121 @@
+diff -ur src/postfix-3.1.15.orig/src/util/sys_defs.h src/postfix-3.1.15/src/util/sys_defs.h
+--- src/postfix-3.1.15.orig/src/util/sys_defs.h	2016-05-15 12:39:11.000000000 -0400
++++ src/postfix-3.1.15/src/util/sys_defs.h	2021-09-22 18:28:20.019701000 -0400
+@@ -1269,6 +1269,121 @@
  #endif
  
   /*
@@ -743,9 +743,9 @@ diff -ur src/postfix-3.0.15.orig/src/util/sys_defs.h src/postfix-3.0.15/src/util
    * We're not going to try to guess like configure does.
    */
  #ifndef SUPPORTED
-diff -ur src/postfix-3.0.15.orig/src/util/unix_listen.c src/postfix-3.0.15/src/util/unix_listen.c
---- src/postfix-3.0.15.orig/src/util/unix_listen.c	2014-12-11 14:41:50.000000000 -0500
-+++ src/postfix-3.0.15/src/util/unix_listen.c	2021-09-22 16:47:21.431975400 -0400
+diff -ur src/postfix-3.1.15.orig/src/util/unix_listen.c src/postfix-3.1.15/src/util/unix_listen.c
+--- src/postfix-3.1.15.orig/src/util/unix_listen.c	2014-12-11 14:41:50.000000000 -0500
++++ src/postfix-3.1.15/src/util/unix_listen.c	2021-09-22 18:28:20.026942900 -0400
 @@ -61,6 +61,27 @@
  #include "listen.h"
  #include "sane_accept.h"
