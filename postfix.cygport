@@ -1,7 +1,7 @@
 # cygport script for postfix
 NAME=postfix
 VERSION=3.5.12
-RELEASE=1
+RELEASE=2
 
 SUMMARY="Mail Transfer Agent"
 
@@ -20,7 +20,6 @@ REQUIRES+=" sed"
 REQUIRES+=" util-linux"
 
 BUILD_REQUIRES=""
-#BUILD_REQUIRES+=" gcc-core=9.3.0-2" #see https://cygwin.com/pipermail/cygwin-apps/2021-September/041561.html
 BUILD_REQUIRES+=" libdb-devel"
 BUILD_REQUIRES+=" libmysqlclient-devel"
 BUILD_REQUIRES+=" libpcre-devel"
